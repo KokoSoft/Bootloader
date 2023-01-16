@@ -1,0 +1,1 @@
+c:\Program Files\Microchip\xc8\v2.36\pic-as\bin\pic-as.exe -mcpu=PIC18F67J60

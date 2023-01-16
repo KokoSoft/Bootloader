@@ -1,0 +1,141 @@
+	MOVWF	ERXFCON, b
+
+	CLRF	ERXSTL, b
+	CLRF	ERXSTH, b
+	SETF	ERXNDL, b
+	SETF	ERXRDPTL, b
+
+	MOVWF	ERXNDH, b
+	MOVWF	ERXRDPTH, b
+	MOVWF	MACON1, b				; MAC CONTROL REGISTER 1
+	MOVWF	MACON3, b				; MAC CONTROL REGISTER 3
+	MOVWF	MAMXFLH, b
+	MOVWF	MAMXFLL, b
+	MOVWF	MAIPG, b				; MAC Non Back-to-Back Inter-Packet Gap Register
+	MOVWF	MABBIPG, b				; MAC Back-to-Back Inter-Packet Gap Register
+	MOVWF	MIREGADR, b				; MII Address Register
+	MOVWF	MIWRL, b				; MII Write Data Register Low Byte
+	MOVWF	MIWRH, b				; MII Write Data Register High Byte
+	MOVWF	MIREGADR, b				; MII Address Register
+	MOVWF	MIWRL, b				; MII Write Data Register Low Byte
+	MOVWF	MIWRH, b				; MII Write Data Register High Byte
+	MOVWF	MIREGADR, b				; MII Address Register
+	MOVWF	MIWRL, b				; MII Write Data Register Low Byte
+	MOVWF	MIWRH, b				; MII Write Data Register High Byte
+
+39 s³ów, 22 rejestry
+
+limit: 17 s³ów dla copiera
+
+; Copier zajmuje 15-4 s³ów -> zysk 6
+	MOVLW	0xE
+	MOVWF	FSR1H, a
+reg_init_loop:
+	TBLRD*+					; read Flash post-increment
+	MOVF	TABLAT, a, W	; address
+	BZ		reg_init_done	; Done if address == 0
+
+	XORLW	LOW(MIREGADR)
+	BNZ		reg_init_do
+	; Wait BUSY before access to MIREGADR
+mii_busy:
+	BTFSC	BUSY					; MII Management Busy (MISTAT.BUSY)
+	BRA		mii_busy
+
+reg_init_do:
+	MOVFF	TABLAT, FSR1L
+	TBLRD*+					; read Flash post-increment
+	MOVFF	TABLAT, INDF1	; Wrtie value
+	BRA		reg_init_loop
+reg_init_done:
+; 15
+
+
+
+
+
+
+	MOVLW	0xE
+	MOVWF	FSR1H, a
+reg_init_loop:
+	TBLRD*+					; read Flash post-increment
+	MOVLW	LOW(MIREGADR)
+	CPFSEQ	TABLAT, a
+	BRA		reg_init_do
+	; Wait BUSY before access to MIREGADR
+mii_busy:
+	BTFSC	BUSY					; MII Management Busy (MISTAT.BUSY)
+	BRA		mii_busy
+
+reg_init_do:
+	MOVF	TABLAT, a, W	; address
+	BZ		reg_init_done	; Done if address == 0
+	MOVWF	TABLAT, FSR1L
+	TBLRD*+					; read Flash post-increment
+	MOVFF	TABLAT, INDF1	; Wrtie value
+	BRA		reg_init_loop
+reg_init_done:
+; 15
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	MOVLW	0xE
+	MOVWF	FSR1H, a
+reg_init_loop:
+	TBLRD*+					; read Flash post-increment
+	MOVF	TABLAT, a, W	; address
+	BZ		reg_init_done
+	MOVWF	FSR1L, a
+	TBLRD*+					; read Flash post-increment
+	MOVFF	TABLAT, INDF1	; Wrtie value
+	BRA		reg_init_loop
+reg_init_done:
+
+
+32 s³owa, 16 rejestrów, limit 16 s³ów dla copiera, zysk 6 s³ów
+
+
+
+
+
+
+
+
+Can access registers EA0 - F9F
+Can be used to configure ports! :)
+
+	MOVLW	0xF
+	MOVWF	FSR1H, a
+	MOVLW	0x20
+	MOVWF	FSR1L, a
+reg_init_loop:
+	TBLRD*+					; read Flash post-increment
+	MOVLW	LOW(MIREGADR)
+	CPFSEQ	TABLAT, a
+	BRA		reg_init_do
+	; Wait BUSY before access to MIREGADR
+mii_busy:
+	BTFSC	BUSY					; MII Management Busy (MISTAT.BUSY)
+	BRA		mii_busy
+
+reg_init_do:
+	MOVF	TABLAT, a, W	; address
+	BZ		reg_init_done	; Done if address == 0
+	TBLRD*+					; read Flash post-increment
+	MOVFF	TABLAT, PLUSW1	; Wrtie value
+	BRA		reg_init_loop
+reg_init_done:
+; 16
