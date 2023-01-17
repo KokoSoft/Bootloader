@@ -4,10 +4,20 @@
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 #include <xc.inc>
+#include "phy.inc"
+#include "memory.inc"
 
 
+GLOBAL eth_read
+GLOBAL eth_read
+GLOBAL memcmp
+GLOBAL memcmp
+GLOBAL eth_write
+GLOBAL eth_write
+GLOBAL eth_send
 
-
+PSECT boot,space=0
+PSECT code
 
 ; Default values
 ;ERXND		1FFF	8191
@@ -36,7 +46,7 @@ mem_init_header:
 	BZ		mem_init_done
 
 	TBLRD*+					; read high address byte
-	BTFSC	TABLAT, a, 7	; Check MSB: 0 - ram, 1 - eth
+	BTFSC	TABLAT, 7, a	; Check MSB: 0 - ram, 1 - eth
 	BRA		mem_init_eth
 
 mem_init_ram:
@@ -111,7 +121,7 @@ phy_init:
 
 	; MAC Full-Duplex Enable, Frame Length Checking Enable, Transmit CRC Enable
 	; All short frames are zero-padded to 60 bytes and a valid CRC is appended
-	MOFLW	MACON3_FULDPX_MASK | MACON3_FRMLNEN_MASK | MACON3_TXCRCEN_MASK | (1 << MACON3_PADCFG0_POSN)
+	MOVLW	MACON3_FULDPX_MASK | MACON3_FRMLNEN_MASK | MACON3_TXCRCEN_MASK | (1 << MACON3_PADCFG0_POSN)
 	MOVWF	MACON3, b				; MAC CONTROL REGISTER 3
 
 	; Maximum frame length to be permitted to be received or transmitted.
@@ -125,8 +135,7 @@ phy_init:
 	MOVWF	MAIPGL, b				; MAC Non Back-to-Back Inter-Packet Gap Register
 	CLRF	MAIPGH, b
 	MOVLW	0x15
-	MOVWF	MABBIPGL, b				; MAC Back-to-Back Inter-Packet Gap Register
-	CLRF	MABBIPGH, b
+	MOVWF	MABBIPG, b				; MAC Back-to-Back Inter-Packet Gap Register
 
     ; TODO: Program the local MAC address
     ;MAADR1 = my_mac.b[0];
@@ -201,8 +210,8 @@ mii_busy2:
 init:
 	MOVLB	0xE				; Select bank E
 	CLRF	ETXSTL, b		; Ethernet Transmit Start (zero after reset)
-	CLRF	Rx_buf + $rx_nextL, a
-	CLRF	Rx_buf + $rx_nextH, a
+	CLRF	Rx_buf + _rx_nextL, a
+	CLRF	Rx_buf + _rx_nextH, a
 	; ERXSTH is used as zero reg
 
 ;-------------------------------------------------------------------------------
@@ -214,7 +223,7 @@ done_frame:
 	; Advance Eth read pointer (ERDPT)
 	; Freeing Receive Buffer Space (ERXRDPT)
 	; application must write to ERXRDPTL first, then to ERXRDPTH
-	MOVF	Rx_buf + $rx_nextL, a, W
+	MOVF	Rx_buf + _rx_nextL, a, W
 	MOVWF	ERDPTL, a
 	;MOVWF	ERXRDPTL, b
 
@@ -231,13 +240,13 @@ done_frame:
 	DECF	WREG, a, W		; ERXRDPTL = next - 1	; Status: C, DC, Z, OV, N
 	MOVWF	ERXRDPTL, b								; Status: None
 
-	MOVF	Rx_buf + $rx_nextH, a, W				; Status:        Z,     N
+	MOVF	Rx_buf + _rx_nextH, a, W				; Status:        Z,     N
 	MOVWF	ERDPTH, a								; Status: None
 	;MOVWF	ERXRDPTH, b
 
 	SUBFWB	ERXSTH, b, W	; W = W - 0 - BORROW	; Use:    C
 	BTFSS	CARRY			; CARRY = !BORROW
-	MOFLW	HIGH(ETH_RX_END - 1)
+	MOVLW	HIGH(eth_rx_end - 1)
 	MOVWF	ERXRDPTH, b
 
 	; Decrement EPKTCNT
@@ -258,19 +267,20 @@ wait_frame:					; Wait loop for receive network frame
 parse_frame:
 	; Read Receive Status Vector and ETH Header
 	LFSR	2, Rx_buf		; Initialize Rx Buffer Pointer
-	MOVLW	$rx_size + $eth_size
-	RCALL	Eth_read
+	
+MOVLW	_rx_size + _mac_size
+	RCALL	eth_read
 
 	; Ethernet has a minimum frame size of 64 bytes, comprising an 18-byte header and a payload of 46 bytes.
 	; It also has a maximum frame size of 1518 bytes, in which case the payload is 1500 bytes.
 
 	; Check ether_type high byte == 0x80
-	MOVF	EtherType, a, W
+	MOVF	Rx_mac + _mac_type, a, W
 	XORLW	HIGH(ETH_TYPE_ARP)	
 	BNZ		done_frame
 
 	; Check ether_type low byte
-	MOVF	Rx_mac + $mac_type + 1, a, W
+	MOVF	Rx_mac + _mac_type + 1, a, W
 	BZ		process_ip			; IP = 80 00
 	XORLW	LOW(ETH_TYPE_ARP)	; ARP = 80 06
 	BNZ		done_frame
@@ -280,8 +290,8 @@ parse_frame:
 ;-------------------------------------------------------------------------------
 process_arp:
 	; Read the ARP packet from Eth to the buffer
-	MOVLW	$arp_size
-	RCALL	Eth_read
+	MOVLW	_arp_size
+	RCALL	eth_read
 
 	; Check hardware and protocol address type and length, operation
 	LFSR	0, Rx_arp
@@ -290,16 +300,16 @@ process_arp:
 	RCALL	memcmp
 
 	; Is it directed to our IP?
-	LFSR	0, Rx_arp + $arp_dst_ip
+	LFSR	0, Rx_arp + _arp_dst_ip
 	LFSR	1, ip_addr
 	MOVLW	4
 	RCALL	memcmp
 
 	; Prepare ARP reply
 	; Set ethernet buffer write pointer
-	MOVLW	HIGH(Tx_arp + $arp_src_mac)
+	MOVLW	HIGH(Tx_arp + _arp_src_mac)
 	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_arp + $arp_src_mac)
+	MOVLW	LOW(Tx_arp + _arp_src_mac)
 	MOVWF	EWRPTL, b
 
 	; Set our MAC and IP as source
@@ -308,21 +318,20 @@ process_arp:
 	RCALL	eth_write
 
 	; Source MAC and IP from request -> destination MAC and IP in response
-	LFSR	0, arp_req_src_mac
+	LFSR	0, Rx_arp + _arp_src_mac
 	MOVLW	6+4
 	RCALL	eth_write
 
 	; Start transmission
-	;MOVLW	$mac_size + $arp_size
+	;MOVLW	_mac_size + _arp_size
 	BRA		eth_send
 
 	
 
-ip_addr			EQU 0x001			; to 0x004
-arp_resp
 
 process_ip:
 
 	BNZ		done_frame
 
 
+END mem_init ; Firmware entry point

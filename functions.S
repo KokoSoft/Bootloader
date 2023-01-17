@@ -4,6 +4,19 @@
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 #include <xc.inc>
+#include "memory.inc"
+
+GLOBAL eth_read
+GLOBAL eth_read
+GLOBAL memcmp
+GLOBAL memcmp
+GLOBAL eth_write
+GLOBAL eth_write
+GLOBAL eth_send
+
+PSECT boot_functions,space=0
+PSECT code
+
 
 ;-------------------------------------------------------------------------------
 ; Read from the Ethernet buffer to a RAM location pointed by FSR2
@@ -11,10 +24,10 @@
 ; FSR2 - Destination pointer
 ; See the note at page 223 of the processor Datasheet
 ;-------------------------------------------------------------------------------
-Eth_read:
+eth_read:
 	MOVFF	EDATA, POSTINC2
 	DECFSZ	WREG, W, a
-	BRA		Eth_read
+	BRA		eth_read
 	RETURN
 
 
@@ -24,10 +37,10 @@ Eth_read:
 ; FSR0 - Source pointer
 ; See the note at page 223 of the processor Datasheet
 ;-------------------------------------------------------------------------------
-Eth_write:
+eth_write:
 	MOVFF	POSTINC0, EDATA
 	DECFSZ	WREG, W, a
-	BRA		Eth_read
+	BRA		eth_write
 	RETURN
 
 
@@ -52,7 +65,7 @@ eth_send:
 	MOVWF	EWRPTH, b
 
 	; Set destination MAC to source MAC of received frame
-	LFSR	0, Rx_mac + $mac_dst
+	LFSR	0, Rx_mac + _mac_dst
 	MOVLW	6
 	RCALL	eth_write
 
@@ -97,3 +110,6 @@ memcpy:
 	DECF	WREG, W, a
 	BNZ		memcpy
 	RETURN
+
+done_frame:
+done_frame_pop:
