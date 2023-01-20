@@ -8,7 +8,6 @@
 ; Receive Status Vector
 ;-------------------------------------------------------------------------------
 _rx_nextL		EQU	0x000
-_rx_nextL		EQU	0x000
 _rx_nextH		EQU	0x001
 _rx_lenL		EQU	0x002	; status[7:0]		15-0 Received Byte Count
 _rx_lenH		EQU	0x003	; status[15:8]		15-0 Received Byte Count
@@ -82,9 +81,12 @@ ETH_TYPE_IP		EQU 0x0800	; Internet Protocol packet
 IP_PROTO_UDP	EQU 17		; User Datagram Protocol
 
 ; ARP protocol HARDWARE identifiers.
-ARPHRD_ETHER	EQU 1		; Ethernet 10Mbps
+ARPHRD_ETHER	EQU 0x0001	; Ethernet 10Mbps
 
 ; ARP protocol opcodes.
-ARP_OP_REQUEST	EQU 1		; ARP request
-ARP_OP_REPLY	EQU 2		; ARP reply
+ARP_OP_REQUEST	EQU 0x0001	; ARP request
+ARP_OP_REPLY	EQU 0x0002	; ARP reply
 ETH_ALEN		EQU 6		; Octets in one ethernet address
+IP_ALEN			EQU 4		; Address length
+IP_HLEN			EQU 20		; Basic header length
+IP_DEF_TTL		EQU 64		; Default Time to Live
