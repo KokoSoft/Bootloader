@@ -162,6 +162,9 @@ eth_send:
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
+	BSF		LATB, 3, a
+	_BRA	done_frame
+	
 
 
 ;-------------------------------------------------------------------------------
@@ -169,6 +172,7 @@ eth_send:
 ; W - compare length, 0 will compare 256 bytes
 ; FSR0, FSR1 - Pointers to data
 ; Function jumps to done_frame_pop if the memory differs
+; Uses temp0!
 ;-------------------------------------------------------------------------------
 memcmp:
 	MOVWF	temp0, a
@@ -196,3 +200,206 @@ memcpy:
 	DECF	WREG, W, a
 	BNZ		memcpy
 	RETURN
+
+
+;-------------------------------------------------------------------------------
+; IP Checksum
+; Super simple implementation. Operates on words only.
+; FSR0 - Source pointer
+; WREG - words count, 0 will compute 256 words
+; Uses temp0!
+; Can save 1 instruction, but will use 3 more cycles per word.
+;-------------------------------------------------------------------------------
+#if 0
+; Budget version, 1 instruction less, 3 more cycles per word
+ip_checksum:						; 11 instructions
+	MOVWF	temp0, a
+
+ip_checksum_continue:
+	MOVF	POSTINC0, a, W
+	ADDWF	checksumH, a, f
+	MOVF	POSTINC0, a, W
+	ADDWFC	checksumL, a, f			; Store MSB in Carry!
+
+	; Store carry in sum
+	MOVLW	0
+	ADDWFC	checksumH, a, f
+	ADDWFC	checksumL, a, f
+
+	; Loop control
+	DECF	temp0, a, f
+	BNZ		ip_checksum_continue
+	RETURN
+#else
+; Premium version, 1 more instruction, 3 cycles per word less.
+ip_checksum:						; 12 instructions
+	MOVWF	temp0, a
+	BCF		CARRY					; Clear carry flag
+
+ip_checksum_continue:
+	MOVF	POSTINC0, a, W
+	ADDWFC	checksumH, a, f
+	MOVF	POSTINC0, a, W
+	ADDWFC	checksumL, a, f
+
+	DECFSZ	temp0, a, f				; Decrement Skip if 0 - no carry flag modification
+	BRA		ip_checksum_continue
+
+	MOVLW	0
+	ADDWFC	checksumH, a, f
+	ADDWFC	checksumL, a, f
+	RETURN
+#endif
+
+#if 0
+; TODO: To be removed.
+;-------------------------------------------------------------------------------
+; Ethernet read with IP Checksum
+; Super simple implementation. Operates on words only.
+; FSR2 - Destination pointer
+; WREG - words count, 0 will compute 256 words
+; Uses temp0!
+; Can save 1 instruction, but will use 3 more cycles per word.
+;-------------------------------------------------------------------------------
+; Premium version, 1 more instruction, 3 cycles per word less.
+eth_read_checksum:
+	MOVWF	temp0, a
+	BCF		CARRY					; Clear carry flag
+
+eth_read_checksum_continue:
+	MOVF	EDATA, a, W
+	MOVWF	POSTINC2, a
+	ADDWFC	checksumH, a, f
+	MOVF	EDATA, a, W
+	MOVWF	POSTINC2, a
+	ADDWFC	checksumL, a, f
+
+	DECFSZ	temp0, a, f				; Decrement Skip if 0 - no carry flag modification
+	BRA		eth_read_checksum_continue
+
+	MOVLW	0
+	ADDWFC	checksumH, a, f
+	ADDWFC	checksumL, a, f
+	RETURN
+#endif
+
+
+;-------------------------------------------------------------------------------
+; IP Checksum ethernet buffer
+; Super simple implementation. Operates on words only.
+; check_lenH:check_lenL - data length in bytes.
+; Operate on word only. 0 will compute 256 words
+; Uses temp0!
+; Can save 1 instruction, if called always with cleared carry flag.
+; 12 + 3 = 15 instructions
+;-------------------------------------------------------------------------------
+eth_checksum_byte:
+	; Divide UDP length by 2 - length in words - stored in W!
+	BCF		CARRY			; Clear carry flag
+	RRCF	check_lenH, a, W
+	RRCF	check_lenL, a, W
+
+;-------------------------------------------------------------------------------
+; IP Checksum ethernet buffer
+; Super simple implementation. Operates on words only.
+; WREG - words count, 0 will compute 256 words
+; Uses temp0!
+; Can save 1 instruction, but will use 3 more cycles per word.
+; 12 instructions
+;-------------------------------------------------------------------------------
+; Premium version, 1 more instruction, 3 cycles per word less.
+eth_checksum:
+	MOVWF	temp0, a
+	BCF		CARRY					; Clear carry flag
+
+eth_checksum_continue:
+	MOVF	EDATA, a, W
+	ADDWFC	checksumH, a, f
+	MOVF	EDATA, a, W
+	ADDWFC	checksumL, a, f
+
+	DECFSZ	temp0, a, f				; Decrement Skip if 0 - no carry flag modification
+	BRA		eth_checksum_continue
+
+	MOVLW	0
+	ADDWFC	checksumH, a, f
+	ADDWFC	checksumL, a, f
+	RETURN
+
+
+#if 0
+;-------------------------------------------------------------------------------
+; IP Checksum ethernet buffer with byte support
+; check_lenH:check_lenL - data length in bytes.
+; Can save 1 instruction, but will use 3 more cycles per word.
+; Uses temp0
+; 26 instructions
+;-------------------------------------------------------------------------------
+; Premium version, 1 more instruction, 3 cycles per word less.
+_ip_checksum:
+	MOVFF	check_lenL, temp0
+	BCF		CARRY					; Clear carry flag
+	RRCF	check_lenH, a, f		; size >>= 1;
+	RRCF	check_lenL, a, f
+	BCF		CARRY					; Clear carry flag, BCF not touch flags
+	BNZ		loop					; Z flag set by RRCF
+
+loop_check:							; sizeL is 0
+	MOVF	check_lenH, a, f
+	BZ		loop_done
+	DECFSZ	check_lenH, a, f		; Decrement Skip if 0 - no carry flag modification
+	NOP
+
+loop:
+	MOVF	EDATA, a, W
+	ADDWFC	checksumH, a, f
+	MOVF	EDATA, a, W
+	ADDWFC	checksumL, a, f
+
+	DCFSNZ	check_lenL, a, f		; Decrement Skip if not 0 - no carry flag modification
+	BRA		loop_check
+	BRA		loop
+
+loop_done:
+	MOVLW	0
+	ADDWFC	checksumH, a, f
+	BTFSC	temp0, 0, a
+	MOVF	EDATA, a, W
+	ADDWFC	checksumL, a, f
+	MOVLW	0
+	ADDWFC	checksumH, a, f
+	RETURN
+#endif
+
+
+#if 0
+PSECT code
+;-------------------------------------------------------------------------------
+; IP Checksum ethernet buffer
+; Super simple implementation. Operates on words only.
+; Uses EWRPT as end address
+; Warning! Will loop forever if (ERDPT & 1) != (EWRPT & 1)
+; Can save 1 instruction, but will use 3 more cycles per word.
+; 14 instructions
+;-------------------------------------------------------------------------------
+; Premium version, 1 more instruction, 3 cycles per word less.
+eth_checksum_ptr:
+	BCF		CARRY					; Clear carry flag
+
+eth_checksum_ptr_continue:
+	MOVF	EDATA, a, W
+	ADDWFC	checksumH, a, f
+	MOVF	EDATA, a, W
+	ADDWFC	checksumL, a, f
+
+	MOVF	ERDPTL, a, W
+	XORWF	EWRPTL, b, W
+	BNZ		eth_checksum_ptr_continue
+	MOVF	ERDPTH, a, W
+	XORWF	EWRPTH, b, W
+	BNZ		eth_checksum_ptr_continue
+
+	ADDWFC	checksumH, a, f
+	ADDWFC	checksumL, a, f
+	RETURN
+#endif

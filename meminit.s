@@ -104,10 +104,6 @@ ENDIF
 	DW	BIGENDIAN(ARP_OP_REPLY)		; be16_t		opCode
 
 	; Ethernet buffer configuration
-	; Default values:
-	; ERXND		1FFF	8191
-	; ERXST		5FA		1530
-
 	MEM_INIT(ERXSTL, 0x06)
 	; ERXSTL:ERXSTH
 	DW	eth_rx_start
@@ -116,6 +112,42 @@ ENDIF
 	; ERXRDPTL:ERXRDPTH
 	DW	eth_rx_end - 1
 
+#if 0
+	; Bootloader protocol response template
+	MEM_INIT(Tx_boot_mac + _mac_type | INIT_ADDR_ETH, 0x04)
+	DW	BIGENDIAN(ETH_TYPE_IP)							; be16_t		etherType
+	DB	(IP_VERSION << 4) | (IP_HLEN / IP_SIZE_UNIT)	; uint8_t		Version_HeaderLength
+	DB	0												; uint8_t		TypeOfService
+
+_ip_len			EQU 0x002	; be16_t		TotalLength
+_ip_id			EQU 0x004	; be16_t		Identification
+
+	DW	0												; be16_t		Flags_Offset
+	DB	IP_DEF_TTL										; uint8_t		TimeToLive
+	DB	IP_PROTO_UDP									; uint8_t		Protocol
+
+
+_ip_chsum		EQU 0x00A	; be16_t		HeaderChecksum
+_ip_src			EQU 0x00C	; IP_Address	SourceAddress
+_ip_dst			EQU 0x010	; IP_Address	DestinationAddress
+
+
+_udp_src		EQU 0x000	; be16_t		Source port 
+_udp_dst		EQU 0x002	; be16_t		Destination port
+_udp_len		EQU 0x004	; be16_t		Length
+_udp_cksum		EQU 0x006	; be16_t		Checksum 
+
+; Zerujac bufor trzeba ustawiæ tylko 5 bajtów (ethType, ip_ver, ttl, proto, upd_src_port)
+;   Tablica offset:value 10 bajtów
+;   + ~9 (18 bajtów!) instrukcji na ustawiaczke
+;   no to mamy ju¿ 28 bajtów, wiecej niz inicjaja ca³ego ip
+
+; Bez zerowania 8 bajtów
+; 13 bajtów w pamiêci (18 z portem udp)
+; Zerowanko i tak nam siê przyda przy liczeniu sumy kontrolnej
+; Inicjalizacja pocz¹tku IP z ethertype = 12 bajtów = 15 bajtów
+; Inicjalizacja ca³ego IP, ethertype i portu udp = 24 = 27 bajtów
+#endif
 	; End marker
 	DB	0x00				; Size = 0
 

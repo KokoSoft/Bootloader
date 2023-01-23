@@ -51,10 +51,10 @@ start:
 	BRA		reg_init
 
 init:
-	MOVLB	0xE				; Select bank E
+	; Select bank E
+	; Whole Bootloader uses access RAM and bank E only.
+	MOVLB	0x0E
 
-	; ERXSTL is used as zero reg. Initialized by reg_init
-ZERO_REG	EQU ERXSTL
 	CLRF	Rx_buf + _rx_nextL, a
 	CLRF	Rx_buf + _rx_nextH, a
 
@@ -87,6 +87,9 @@ phy_init:
 	; Call initialization functions
 	_RCALL	reg_init
 	_RCALL	mem_init
+
+	; ERXSTL is used as zero reg. Initialized by reg_init
+ZERO_REG	EQU ERXSTL
 
 	; Enable packet reception
 	MOVLW	ECON1_RXEN_MASK			; Receive Enable
@@ -210,10 +213,272 @@ process_arp:
 	_BRA		eth_send
 
 	
+	; Every internet module must be able to forward a datagram of 68
+	; octets without further fragmentation. This is because an internet
+	; header may be up to 60 octets, and the minimum fragment is 8 octets.
+	; Every internet destination must be able to receive a datagram of 576
+	; octets either in one piece or in fragments to be reassembled.
 
+process_ip:	; IP Datagram
+	; Clear checksum
+	CLRF	checksumL, a
+	CLRF	checksumH, a
 
-process_ip:
+	; Read IP header
+	MOVLW	_ip_size
+	_RCALL	eth_read
 
+	; IP header checksum calculation
+	LFSR	0, Rx_ip
+	MOVLW	_ip_size / 2
+	_RCALL	ip_checksum
+
+	; Check checksum
+	COMF	checksumL, a
+	BNZ		done_frame
+	COMF	checksumH, a
 	BNZ		done_frame
 
+	; TODO: Check length!!!!
+
+	; 4 bytes to check, 1 and mask, 11 instructions 
+	; Check header version and size
+	MOVLW	(IP_VERSION << 4) | (_ip_size / IP_SIZE_UNIT)
+	XORWF	Rx_ip + _ip_ver, a, W
+	BNZ		done_frame
+
+	; Check destination ip address
+	LFSR	0, Rx_ip + _ip_dst
+	LFSR	1, ip_addr
+	; Skip if broadcast
+	BTFSS	Rx_buf + RX_BROADCAST, a
+	_RCALL	memcmp
+
+ip_dst_checked:
+	; Check flags - allow only don't fragment flag
+	MOVLW	~HIGH(IP_FLAG_DF)
+	ANDWF	Rx_ip + _ip_flags, a, W
+	BNZ		done_frame
+	; Non zero fragment offset is not allowed
+	MOVF	Rx_ip + _ip_flags + 1, a, W
+	BNZ		done_frame
+
+	; Check protocol
+	MOVLW	IP_PROTO_UDP
+	XORWF	Rx_ip + _ip_proto, a, W
+	BNZ		done_frame
+
+	; IP payload length calculation
+	MOVLW	_ip_size
+	SUBWF	Rx_ip + _ip_len + 1, a, f
+	CLRF	WREG, a
+	SUBWFB	Rx_ip + _ip_len, a, f
+
+process_udp:
+	; Read UDP header
+	MOVLW	_udp_size
+	_RCALL	eth_read
+
+	; Compare IP length with UDP length
+	MOVF	Rx_ip + _ip_len + 1, a, W
+	XORWF	Rx_udp + _udp_len + 1, a, W
+	BNZ		done_frame
+	MOVF	Rx_ip + _ip_len, a, W
+	XORWF	Rx_udp + _udp_len, a, W
+	BNZ		done_frame
+
+	; Compute checksum
+	; TODO: Move to function to save 3 instructions
+	CLRF	checksumH, a	; Zero
+	MOVLW	IP_PROTO_UDP
+	MOVWF	checksumL, a	; Protocol
+
+	; Add IP source and destination address + udp header
+	LFSR	0, Rx_ip + _ip_src
+	MOVLW	(2 * IP_ALEN + _udp_size) / 2	; in words
+	_RCALL	ip_checksum
+
+	; UDP payload length calculation
+	MOVLW	_udp_size
+	SUBWF	Rx_udp + _udp_len + 1, a, f
+	CLRF	WREG, a
+	SUBWFB	Rx_udp + _udp_len, a, f
+
+	; Save read pointer
+	MOVFF	ERDPTH, ptrH
+	MOVFF	ERDPTL, ptrL
+
+	; Checksum UDP Payload
+	MOVFF	Rx_udp + _udp_len, check_lenH
+	MOVFF	Rx_udp + _udp_len + 1, check_lenL
+	_RCALL	eth_checksum_byte
+
+	; Restore read pointer
+	MOVFF	ptrH, ERDPTH
+	MOVFF	ptrL, ERDPTL
+
+	; Validate checksum - compare with UDP Length from pseudo header.
+	; This length is equal to length in the header (already modified) and
+	; the current IP Length value (IP Header length already subtracted)
+	; call ip_checksum with checksum in FSR0 will requre 2 words more.
+	COMF	checksumH, a, W
+	XORWF	Rx_udp + _udp_len, a, W
+	BNZ		done_frame
+	COMF	checksumL, a, W
+	XORWF	Rx_udp + _udp_len + 1, a, W
+	BNZ		done_frame
+
+	; Check destination port
+	MOVLW	HIGH(UDP_PORT)
+	XORWF	Rx_udp + _udp_dst, a, W
+	BNZ		done_frame
+	MOVLW	LOW(UDP_PORT)
+	XORWF	Rx_udp + _udp_dst + 1, a, W
+	BNZ		done_frame
+
+udp_send:
+	; Move source port to the destination port
+	MOVFF	Rx_udp + _udp_src, Rx_udp + _udp_dst
+	MOVFF	Rx_udp + _udp_src + 1, Rx_udp + _udp_dst + 1
+
+	; Set source port
+	MOVLW	HIGH(UDP_PORT)
+	MOVWF	Rx_udp + _udp_src, a
+	MOVLW	LOW(UDP_PORT)
+	MOVWF	Rx_udp + _udp_src + 1, a
+
+	; Calculate datagram length with header
+	; Store it also in checksum field. It will act as UDP Length field
+	; of the pseudo header
+	MOVLW	LOW(Tx_boot_udp)
+	SUBWF	EWRPTL, b, W
+	MOVWF	Rx_udp + _udp_len + 1, a
+	MOVWF	Rx_udp + _udp_cksum + 1, a
+	MOVWF	check_lenL, a
+
+	MOVLW	HIGH(Tx_boot_udp)
+	SUBWFB	EWRPTH, b, W
+	MOVWF	Rx_udp + _udp_len, a
+	MOVWF	Rx_udp + _udp_cksum + 1, a
+	MOVWF	check_lenH, a
+
+	; Prepare pseudoheader checksum
+	; TODO: Move to function to save 3 instructions
+	CLRF	checksumH, a	; Zero
+	MOVLW	IP_PROTO_UDP
+	MOVWF	checksumL, a	; Protocol
+
+	; Add ip source and destination address, UDP Header
+	LFSR	0, Rx_ip + _ip_src
+	MOVLW	(2 * IP_ALEN + _udp_size) / 2	; in words
+	_RCALL	ip_checksum
+
+	; Calculate payload length
+	MOVLW	_udp_size
+	SUBWF	check_lenL, a, f
+	MOVLW	0
+	SUBWFB	check_lenH, a, f
+
+	; Set ethernet read pointer
+	MOVLW	HIGH(Tx_boot_udp)
+	MOVWF	ERDPTH, a
+	MOVLW	LOW(Tx_boot_udp)
+	MOVWF	ERDPTL, a
+
+	; Checksum UDP payload
+	_RCALL	eth_checksum_byte
+
+	; Finalize udp checksum
+	; If the computed checksum is zero, it is transmitted as all ones
+	; An all zero transmitted checksum value means that the transmitter generated no checksum
+	COMF	checksumH, a, f
+	BNZ		upd_checksum_not_zeroH
+	COMF	checksumL, a, f
+	BNZ		upd_checksum_not_zeroL
+
+	SETF	checksumH, a
+upd_checksum_not_zeroH:
+	COMF	checksumL, a, f
+
+upd_checksum_not_zeroL:
+	; Set UDP checksum field
+	MOVFF	checksumH, Rx_udp + _udp_cksum
+	MOVFF	checksumL, Rx_udp + _udp_cksum + 1
+
+bootloader_processor:
+
+; Move eth write pointer to ip header
+	MOVLW	HIGH(Tx_boot)
+	MOVWF	EWRPTH, b
+	MOVLW	LOW(Tx_boot)
+	MOVWF	EWRPTL, b
+
+	LFSR	0, mac_addr
+	MOVLW	6+4
+	_RCALL	eth_write
+
+
+ip_send:
+	; Calculate IP Total Length
+	MOVLW	_ip_len
+	ADDWF	Rx_ip + _ip_len + 1, a, f
+	MOVLW	0
+	ADDWF	Rx_ip + _ip_len, a, f
+
+	; Set Time-to-live
+	MOVLW	IP_DEF_TTL
+	MOVWF	Rx_ip + _ip_ttl
+
+	; Destination address
+	LFSR	0,	Rx_ip + _ip_src
+	LFSR	1,	Rx_ip + _ip_dst
+	MOVLW	IP_ALEN
+	_RCALL	memcpy
+
+	; Source and destination address
+	LFSR	0,	ip_addr
+	LFSR	1,	Rx_ip + _ip_src
+	MOVLW	IP_ALEN
+	_RCALL	memcpy
+
+	; Clear IP checksum field
+	CLRF	Rx_ip + _ip_chsum, a
+	CLRF	Rx_ip + _ip_chsum + 1, a
+
+	; Checksum
+	CLRF	checksumH, a
+	CLRF	checksumL, a
+
+	LFSR	0,	Rx_ip
+	MOVLW	_ip_len / 2
+	_RCALL	ip_checksum
+
+	; Set IP checksum field
+	COMF	checksumH, a, W
+	MOVWF	Rx_ip + _ip_chsum, a
+	COMF	checksumL, a, W
+	MOVWF	Rx_ip + _ip_chsum + 1, a
+	
+	; Save the ethernet write pointer - datagram end marker
+	MOVFF	EWRPTH, ptrH
+	MOVFF	EWRPTL, ptrL
+
+	; Move eth write pointer to ip header
+	MOVLW	HIGH(Tx_boot_ip)
+	MOVWF	EWRPTH, b
+	MOVLW	LOW(Tx_boot_ip)
+	MOVWF	EWRPTL, b
+
+	; Write ip and udp header to the ethernet buffer
+	LFSR	0, Rx_ip
+	MOVLW	_ip_size + _udp_size
+	_RCALL	eth_write
+
+	; Restore the ethernet write pointer
+	MOVFF	ptrH, EWRPTH
+	MOVFF	ptrL, EWRPTL
+
+	; Send data!
+	_BRA		eth_send
+	
 END start; Bootloader entry point

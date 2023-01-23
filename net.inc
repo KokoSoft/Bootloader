@@ -15,6 +15,7 @@ _rx_statusL		EQU	0x004	; status[23:16]		23 Received OK
 _rx_statusH		EQU	0x005	; status[31:24]		25 Receive Broadcast Packet
 _rx_size		EQU	0x006
 
+#define RX_BROADCAST	_rx_statusH, 1
 ;-------------------------------------------------------------------------------
 ; Transmit Status Vector
 ;-------------------------------------------------------------------------------
@@ -70,17 +71,16 @@ _ip_size		EQU 0x014
 ; |                    Options                    |    Padding    |
 ; +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-IP_ALEN			EQU 4		; Address length
-IP_HLEN			EQU 20		; Basic header length
-IP_DEF_TTL		EQU 64		; Default Time to Live
+IP_ALEN			EQU 4			; Address length
+IP_DEF_TTL		EQU 64			; Default Time to Live
 IP_VERSION		EQU 4
 IP_SIZE_UNIT	EQU 4
 
-IP_FLAG_DF		EQU 0x4000	; Don't fragment
-IP_FLAG_MF		EQU 0x2000	; More fragments
-IP_FRAG_OFF		EQU 0x1FFF	; Fragment offset
+IP_FLAG_DF		EQU 0x4000		; Don't fragment
+IP_FLAG_MF		EQU 0x2000		; More fragments
+IP_FRAG_OFF		EQU 0x1FFF		; Fragment offset
 
-IP_PROTO_UDP	EQU 17		; User Datagram Protocol
+IP_PROTO_UDP	EQU 17			; User Datagram Protocol
 
 ;-------------------------------------------------------------------------------
 ; UDP Packet
@@ -181,7 +181,7 @@ _read_size			EQU 0x06
 ; Write
 _write_address		EQU	0x00	; be32_t	address;
 _write_data			EQU	0x04	; be8_t		data[64];
-_write_size			EQU	0x44
+_write_size			EQU	0x05
 
 ; Erase
 _erase_address		EQU	0x00	; be32_t	address;
