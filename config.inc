@@ -9,9 +9,10 @@
 ;-------------------------------------------------------------------------------
 ; Bootloader configuration
 ;-------------------------------------------------------------------------------
-CONFIGURE_NETWORK	EQU 1	; Set to 1 to hardcode default network addresses
+CONFIGURE_NETWORK	EQU 1	; Set to 1 to set default network addresses
 #define IP_ADDRESS			10, 0, 1, 250
 #define MAC_ADDRESS			0x2A, 0xCB, 0x4F, 0x4C, 0xB2, 0x31
+UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 
 ;-------------------------------------------------------------------------------
 ; Ethernet module configuration
