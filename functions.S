@@ -11,6 +11,8 @@
 ;PSECT boot_functions,space=0
 PSECT code
 
+GLOBAL init
+	_BRA	init
 ;-------------------------------------------------------------------------------
 ; Memory initializer (34 words)
 ; Set Flash pointer (TBLPTRU:TBLPTRH:TBLPTRL) before calling this function
@@ -154,11 +156,11 @@ eth_send:
 	RCALL	eth_write
 
 	; DEBUG
-	;CLRF	ERDPTL, a
-	;MOVFF	EWRPTH, ERDPTH
-	;LFSR	2, 0x100
-	;CLRF	WREG, a
-	;RCALL	eth_read
+	CLRF	ERDPTL, a
+	MOVFF	EWRPTH, ERDPTH
+	LFSR	2, 0x100
+	CLRF	WREG, a
+	RCALL	eth_read
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
@@ -361,11 +363,11 @@ loop:
 
 loop_done:
 	MOVLW	0
-	ADDWFC	checksumH, a, f
 	BTFSC	temp0, 0, a
 	MOVF	EDATA, a, W
-	ADDWFC	checksumL, a, f
+	ADDWFC	checksumH, a, f
 	MOVLW	0
+	ADDWFC	checksumL, a, f
 	ADDWFC	checksumH, a, f
 	RETURN
 #endif

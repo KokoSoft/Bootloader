@@ -17,16 +17,18 @@ PSECT rx_buffer,abs, ovrld, space=1,class=COMRAM
 ;-------------------------------------------------------------------------------
 ; Access RAM (0x00 - 0x5F)
 temp0:			DS 1
+use_me:			DS 1
 
 ; Used to store partial checksum by eth_checksum_ptr, eth_checksum_byte, eth_checksum, ip_checksum
-checksumL:		DS 1
 checksumH:		DS 1
+checksumL:		DS 1
 
 
-lengthL:		DS 1
 lengthH:		DS 1
-ptrL:			DS 1
+lengthL:		DS 1
+; Can be outside of access ram
 ptrH:			DS 1
+ptrL:			DS 1
 
 ; Parameters for eth_checksum_byte
 ; big endian! Used to checksum calculation! Eee? Chyba jednak nie?
@@ -39,8 +41,9 @@ check_lenL:		DS 1
 ;udp_cksumL:		DS 1
 ;udp_cksumH:		DS 1
 
-ALIGN 0x10
-;ORG 0x60 - _rx_size - _mac_size		; 0x60 - 0x07 - 0x0E - 0x14 =     0x04c - 0x15D RX Frame RAM Buffer
+;ALIGN 0x10 DO NOT USE ALIGN!!!! Assembler bug?!
+;ORG 0x60 - (_rx_size + _mac_size + _ip_size + _udp_size)		; 0x60 - 0x07 - 0x0E - 0x14 = 2F - 0x15D RX Frame RAM Buffer
+ORG 0x20 - _rx_size
 Rx_buf:			DS _rx_size		; Receive Status Vector
 Rx_mac:			DS _mac_size	; MAC Header
 ; Access RAM ends here
