@@ -51,6 +51,7 @@ start:
 	BRA		reg_init
 
 init:
+	BRA		init
 	; Select bank E
 	; Whole Bootloader uses access RAM and bank E only.
 	MOVLB	0x0E
@@ -103,7 +104,6 @@ ZERO_REG	EQU ERXSTL
 ;-------------------------------------------------------------------------------
 done_frame_pop:				; Verify functions jump here if an error was detected
 	POP
-	BRA		done_frame
 done_frame:
 	; Advance Eth read pointer (ERDPT)
 	; Freeing Receive Buffer Space (ERXRDPT)
@@ -150,7 +150,7 @@ wait_frame:					; Wait loop for receive network frame
 ;	3. Parse ethertype and jump to ARP or IP/UDP parser
 ;-------------------------------------------------------------------------------
 parse_frame:
-	BSF		LATB, 1, a
+	BTG		LATB, 1, a
 	; Read Receive Status Vector and ETH Header
 	LFSR	2, Rx_buf		; Initialize Rx Buffer Pointer
 	
@@ -174,7 +174,6 @@ MOVLW	_rx_size + _mac_size
 ; ARP packet processor
 ;-------------------------------------------------------------------------------
 process_arp:
-	BSF		LATB, 2, a
 	; Read the ARP packet from Eth to the buffer
 	MOVLW	_arp_size
 	_RCALL	eth_read
@@ -210,6 +209,7 @@ process_arp:
 
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
+	BSF		LATB, 2, a
 	_BRA		eth_send
 
 	
@@ -427,7 +427,7 @@ ip_send:
 
 	; Set Time-to-live
 	MOVLW	IP_DEF_TTL
-	MOVWF	Rx_ip + _ip_ttl
+	MOVWF	Rx_ip + _ip_ttl, a
 
 	; Destination address
 	LFSR	0,	Rx_ip + _ip_src

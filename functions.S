@@ -162,7 +162,6 @@ eth_send:
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
-	BSF		LATB, 3, a
 	_BRA	done_frame
 	
 
