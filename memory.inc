@@ -48,7 +48,6 @@ Rx_buf:			DS _rx_size		; Receive Status Vector
 Rx_mac:			DS _mac_size	; MAC Header
 ; Access RAM ends here
 Rx_ip:			DS _ip_size		; IP Header
-; TODO: Mo¿na tutaj zrobiæ dziure na UDP pseudo header i jednym callem liczyæ sumê dla udp
 Rx_udp:			DS _udp_size	; UDP Header
 Rx_proto:
 Rx_arp			EQU Rx_ip		; ARP Packet = IP Header
@@ -63,15 +62,9 @@ ENDIF
 ; Network configuration
 ; TODO: Move it to a right place
 ; Keep it with this order (ARP packet aligned)
-mac_addr		EQU 0xF00
-ip_addr			EQU 0xF06
-arp_filter		EQU	0xF0A
-
-; Tx packet scratch pad
-; TODO: Move it to a right place
-;prep_boot_ip	EQU 0xE00 						; IP Header
-;prep_boot_udp	EQU (prep_boot_ip + _ip_size)	; UDP Header
-
+arp_filter		EQU	0xF00
+mac_addr		EQU arp_filter + ARP_FILTER_LENGTH
+ip_addr			EQU mac_addr + ETH_ALEN
 
 
 ;-------------------------------------------------------------------------------

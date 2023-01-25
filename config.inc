@@ -52,4 +52,3 @@ PHY_LED				EQU (1 << PHLCON_STRCH_POSN) | (PHY_LED_STR_NORMAL << PHLCON_LFRQ_POS
 ;-------------------------------------------------------------------------------
 ARP_FILTER_LENGTH	EQU 0x08
 REG_INIT_REF		EQU 0xF20
-INIT_ADDR_ETH		EQU	0x8000

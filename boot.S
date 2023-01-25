@@ -192,11 +192,21 @@ process_arp:
 	_RCALL	memcmp
 
 	; Prepare ARP reply
+
+	; Change opCode to reply
+	MOVLW	LOW(ARP_OP_REPLY)
+	MOVWF	Rx_arp + _arp_op + 1, a
+
 	; Set ethernet buffer write pointer
-	MOVLW	HIGH(Tx_arp + _arp_src_mac)
+	MOVLW	HIGH(Tx_arp_mac + _mac_type)
 	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_arp + _arp_src_mac)
+	MOVLW	LOW(Tx_arp_mac + _mac_type)
 	MOVWF	EWRPTL, b
+
+	; Write etherType and part of the ARP reply
+	LFSR	0, Rx_mac + _mac_type
+	MOVLW	2 + _arp_src_mac
+	_RCALL	eth_write
 
 	; Set our MAC and IP as source
 	LFSR	0, mac_addr

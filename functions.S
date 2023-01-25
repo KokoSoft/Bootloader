@@ -27,31 +27,15 @@ mem_init:
 	BZ		mem_init_done
 
 	TBLRD*+					; read high address byte
-	BTFSC	TABLAT, 7, a	; Check MSB: 0 - ram, 1 - eth
-	BRA		mem_init_eth
-
-mem_init_ram:
 	MOVFF	TABLAT, FSR1H
 	TBLRD*+					; read low address byte
 	MOVFF	TABLAT, FSR1L
 
-mem_init_ram_loop:
+mem_init_loop:
 	TBLRD*+
 	MOVFF	TABLAT, POSTINC1
 	DECFSZ	WREG, a, W
-	BRA		mem_init_ram_loop
-	BRA		mem_init
-
-mem_init_eth:
-	MOVFF	TABLAT, EWRPTH
-	TBLRD*+					; read low address byte
-	MOVFF	TABLAT, EWRPTL
-
-mem_init_eth_loop:
-	TBLRD*+
-	MOVFF	TABLAT, EDATA
-	DECFSZ	WREG, a, W
-	BRA		mem_init_eth_loop
+	BRA		mem_init_loop
 	BRA		mem_init
 
 mem_init_done:

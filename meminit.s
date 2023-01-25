@@ -76,13 +76,7 @@ mem_init_data:
 ; Memory initialization array
 ;-------------------------------------------------------------------------------
 IF CONFIGURE_NETWORK
-	; Network address configuration
-	MEM_INIT(MAADR5, 6)							; 06 0e 80
-	DB	ETH_MAC_ADDR(MAC_ADDRESS)				; B2 31 4F 4C 2A CB
-
-	MEM_INIT(mac_addr, 10 + ARP_FILTER_LENGTH)
-	DB	MAC_ADDRESS								; 0x2A, 0xCB, 0x4F, 0x4C, 0xB2, 0x31
-	DB	IP_ADDRESS
+	MEM_INIT(arp_filter, ARP_FILTER_LENGTH + ETH_ALEN + IP_ALEN)
 ELSE
 	MEM_INIT(arp_filter, ARP_FILTER_LENGTH)
 ENDIF
@@ -94,14 +88,14 @@ ENDIF
 	DB	IP_ALEN						; uint8_t		protocolAddressLength  // in bytes
 	DW	BIGENDIAN(ARP_OP_REQUEST)	; be16_t		opCode
 
-	; ARP response packet template
-	MEM_INIT(Tx_arp_mac + _mac_type | INIT_ADDR_ETH, 0x0A)
-	DW	BIGENDIAN(ETH_TYPE_ARP)		; be16_t		etherType
-	DW	BIGENDIAN(ARPHRD_ETHER)		; be16_t		hardwareAddressType
-	DW	BIGENDIAN(ETH_TYPE_IP)		; be16_t		protocolAddressType
-	DB	ETH_ALEN					; uint8_t		hardwareAddressLength  // in bytes
-	DB	IP_ALEN						; uint8_t		protocolAddressLength  // in bytes
-	DW	BIGENDIAN(ARP_OP_REPLY)		; be16_t		opCode
+IF CONFIGURE_NETWORK
+	DB	MAC_ADDRESS
+	DB	IP_ADDRESS
+
+	; Network address configuration
+	MEM_INIT(MAADR5, ETH_ALEN)
+	DB	ETH_MAC_ADDR(MAC_ADDRESS)
+ENDIF
 
 	; Ethernet buffer configuration
 	MEM_INIT(ERXSTL, 0x06)
@@ -114,4 +108,3 @@ ENDIF
 
 	; End marker
 	DB	0x00				; Size = 0
-
