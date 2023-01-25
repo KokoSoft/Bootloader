@@ -93,7 +93,7 @@ phy_init:
 	_RCALL	mem_init
 
 	; ERXSTL is used as zero reg. Initialized by reg_init
-ZERO_REG	EQU ERXSTL
+#define ZERO_REG	ERXSTL, b
 
 	; Enable packet reception
 	MOVLW	ECON1_RXEN_MASK			; Receive Enable
@@ -113,7 +113,6 @@ done_frame:
 	; application must write to ERXRDPTL first, then to ERXRDPTH
 	MOVF	Rx_buf + _rx_nextL, a, W
 	MOVWF	ERDPTL, a
-	;MOVWF	ERXRDPTL, b
 
 	; Errata
 	; The receive hardware may corrupt the circular receive buffer (including the Next Packet Pointer
@@ -130,21 +129,19 @@ done_frame:
 
 	MOVF	Rx_buf + _rx_nextH, a, W				; Status:        Z,     N
 	MOVWF	ERDPTH, a								; Status: None
-	;MOVWF	ERXRDPTH, b
 
-	SUBFWB	ZERO_REG, b, W	; W = W - 0 - BORROW	; Use:    C
+	SUBFWB	ZERO_REG, W		; W = W - 0 - BORROW	; Use:    C
 	BTFSS	CARRY			; CARRY = !BORROW
 	MOVLW	HIGH(eth_rx_end - 1)
 	MOVWF	ERXRDPTH, b
 
-	; Decrement EPKTCNT
-	; Attempting to decrement EPKTCNT below 0 does not cause an underflow to 255
-	BSF		PKTDEC			;												b ECON2		E FEh
 
 wait_frame:					; Wait loop for receive network frame
 	BTFSS	PKTIF			; Receive Packet Pending Interrupt Flag bit		a EIR		F 60h
 	BRA		wait_frame
 
+	; Decrement EPKTCNT
+	BSF		PKTDEC			;												b ECON2		E FEh
 
 ;-------------------------------------------------------------------------------
 ; Incoming frame parser
@@ -158,7 +155,7 @@ parse_frame:
 	; Read Receive Status Vector and ETH Header
 	LFSR	2, Rx_buf		; Initialize Rx Buffer Pointer
 	
-MOVLW	_rx_size + _mac_size
+	MOVLW	_rx_size + _mac_size
 	_RCALL	eth_read
 
 	; Ethernet has a minimum frame size of 64 bytes, comprising an 18-byte header and a payload of 46 bytes.
