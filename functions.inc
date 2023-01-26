@@ -3,6 +3,7 @@
 ; Copyright(c) 2023 Koko Software. All rights reserved.
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
+#include "assembler_bug_wa.inc"
 
 ;-------------------------------------------------------------------------------
 ; Memory initializer (34 words)
@@ -118,33 +119,3 @@ GLOBAL eth_checksum_byte
 ; Premium version, 1 more instruction, 3 cycles per word less.
 GLOBAL eth_checksum
 
-
-_BRA MACRO address
-	;;IF ((address - $ - 2) > 1023)
-	;;	ERROR	"BRA address too big!"
-	;;ENDIF
-	;;IF (address - $ - 2) < -1024
-	;;	ERROR	"BRA address too small!"
-	;;ENDIF
-	DW	1101000000000000B | (((address - $ - 2) shr 1) and 0x7ff)
-ENDM
-
-_BNZ MACRO address
-	;;IF ((address - $ - 2) > 255)
-	;;	ERROR	"BRA address too big!"
-	;;ENDIF
-	;;IF (address - $ - 2) < -256
-	;;	ERROR	"BRA address too small!"
-	;;ENDIF
-	DW	1110000100000000B | (((address - $ - 2) shr 1) and 0xff)
-ENDM
-
-_RCALL MACRO address
-	;;IF ((address - $ - 2) > 1023)
-	;;	ERROR	"RCALL address too big!"
-	;;ENDIF
-	;;IF (address - $ - 2) < -1024
-	;;	ERROR	"RCALL address too small!"
-	;;ENDIF
-	DW	1101100000000000B | (((address - $ - 2) shr 1) and 0x7ff)
-ENDM
