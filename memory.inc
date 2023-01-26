@@ -23,7 +23,7 @@ use_me:			DS 1
 checksumH:		DS 1
 checksumL:		DS 1
 
-
+; TODO: Czy my to do czegoœ u¿ywamy?
 lengthH:		DS 1
 lengthL:		DS 1
 ; Can be outside of access ram
@@ -34,6 +34,15 @@ ptrL:			DS 1
 ; big endian! Used to checksum calculation! Eee? Chyba jednak nie?
 check_lenH:		DS 1
 check_lenL:		DS 1
+; 0x0A
+last_seq:		DS 4
+; 0x0E
+boot_counter:	DS 4
+; 0x12
+received_udp:	DS 4
+; 0x16
+received_arp:	DS 4
+; 0x1A
 
 ; Partial UDP checksum (zero, protocol, src and dst address)
 ; I gave up with it. Using this cost 8 instruction words and 2 bytes of memory
@@ -41,8 +50,10 @@ check_lenL:		DS 1
 ;udp_cksumL:		DS 1
 ;udp_cksumH:		DS 1
 
+; 0x2F
+
 ;ALIGN 0x10 DO NOT USE ALIGN!!!! Assembler bug?!
-;ORG 0x60 - (_rx_size + _mac_size + _ip_size + _udp_size)		; 0x60 - 0x07 - 0x0E - 0x14 = 2F - 0x15D RX Frame RAM Buffer
+;ORG 0x60 - (_rx_size + _mac_size + _ip_size + _udp_size)		; 0x60 - 0x07 - 0x0E - 0x14 - 0x08 = 2F - 0x15D RX Frame RAM Buffer
 ORG 0x20 - _rx_size
 Rx_buf:			DS _rx_size		; Receive Status Vector
 Rx_mac:			DS _mac_size	; MAC Header

@@ -36,6 +36,13 @@
 ; CONFIG3H
   CONFIG  ETHLED = ON           ; Ethernet LED Enable bit (RA0/RA1 are multiplexed with LEDA/LEDB when Ethernet module is enabled and function as I/O when Ethernet is disabled)
 
+inc_dw MACRO var
+	MOVLW	0
+	INCF	var, a, f
+	ADDWFC	var + 1, a, f
+	ADDWFC	var + 2, a, f
+	ADDWFC	var + 3, a, f
+ENDM
 
 PSECT code
 
@@ -99,6 +106,8 @@ phy_init:
 	MOVLW	ECON1_RXEN_MASK			; Receive Enable
 	MOVWF	ECON1, a				; ETHERNET CONTROL REGISTER 1
 
+	inc_dw boot_counter
+
 	; Jump to received frame processor
 	BRA		done_frame
 
@@ -106,6 +115,7 @@ phy_init:
 ; Frame processor
 ;-------------------------------------------------------------------------------
 done_frame_pop:				; Verify functions jump here if an error was detected
+	; TODO: Move it to memcmp
 	POP
 done_frame:
 	; Advance Eth read pointer (ERDPT)
@@ -190,6 +200,8 @@ process_arp:
 	LFSR	1, ip_addr
 	MOVLW	IP_ALEN
 	_RCALL	memcmp
+
+	inc_dw received_arp
 
 	; Prepare ARP reply
 
@@ -349,19 +361,101 @@ process_udp:
 	BNZ		done_frame
 
 
-
-
 bootloader_processor:
+	inc_dw received_udp
 
-; Move eth write pointer to ip header
+	; Read current seq
+	MOVLW	4
+	_RCALL	eth_read
+
+	; If seq == 0 -> Set clear counters flag
+	CLRF	use_me, a
+	MOVF	Rx_proto, a, W
+	BNZ		no_clear
+	MOVF	Rx_proto+1, a, W
+	BNZ		no_clear
+	MOVF	Rx_proto+2, a, W
+	BNZ		no_clear
+	MOVF	Rx_proto+3, a, W
+	BNZ		no_clear
+	MOVLW	1
+	IORWF	use_me, a, f
+no_clear:
+
+	; Move eth write pointer to response start
 	MOVLW	HIGH(Tx_boot)
 	MOVWF	EWRPTH, b
 	MOVLW	LOW(Tx_boot)
 	MOVWF	EWRPTL, b
 
-	LFSR	0, mac_addr
-	MOVLW	6+4
+	; Firmware status
+	MOVFF	RCON, EDATA
+	SETF	RCON, a
+	MOVFF	STKPTR, EDATA
+	MOVFF	ESTAT, EDATA
+	MOVFF	use_me, EDATA
+
+	; Ethernet buffer pointers
+	LFSR	0, ERXRDPTL
+	MOVLW	4
 	_RCALL	eth_write
+
+	; Packets stats
+	LFSR	0, last_seq
+	MOVLW	4*4
+	_RCALL	eth_write
+
+	MOVFF	Rx_proto, last_seq
+	MOVFF	Rx_proto+1, last_seq+1
+	MOVFF	Rx_proto+2, last_seq+2
+	MOVFF	Rx_proto+3, last_seq+3
+
+	; Write current seq
+	LFSR	0, Rx_proto
+	MOVLW	4
+	_RCALL	eth_write
+
+	; Clear counters
+	MOVF	use_me, a, W
+	BZ		payload
+	LFSR	0, boot_counter
+	MOVLW	3*4
+clear_stats:
+	CLRF	POSTINC0, a
+	DECF	WREG, a, f
+	BNZ		clear_stats
+
+payload:
+; Substract seq length
+	MOVLW	4
+	SUBWF	Rx_udp + _udp_len + 1, a, f
+	BZ		payload_end
+
+	; Write xored payload
+	MOVLW	0x5A
+payload_byte:
+	MOVFF	EDATA, temp0
+	XORWF	temp0, a, W
+	MOVFF	WREG, EDATA
+	DECF	Rx_udp + _udp_len + 1, a, f
+	BNZ		payload_byte
+payload_end:
+
+
+
+
+
+
+
+
+	; Write payload xored payload
+;payload:
+;	BNC		payload_end
+;	MOVFF	EDATA, WREG
+;	XORLW	0x5A
+;	MOVFF	WREG, EDATA
+;	BRA		payload
+;payload_end:
 
 
 
