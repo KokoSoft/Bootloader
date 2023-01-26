@@ -90,22 +90,16 @@ eth_rx_start:
 ORG 1E00h
 eth_rx_end:
 
-Tx_arp_start:	DS 1							; PER-PACKET CONTROL BYTE
-Tx_arp_mac:		DS _mac_size					; MAC Header
-Tx_arp:			DS _arp_size					; ARP Packet
-Tx_arp_status:	DS _tx_size						; 7-byte transmit status vector
-Tx_arp_end:										; ARP Packet end pointer
-; Tx_arp_size	50 bytes
-
-;ALIGN 2
+Tx_start:	DS 1							; PER-PACKET CONTROL BYTE
+Tx_mac:		DS _mac_size					; MAC Header
+Tx_arp:										; ARP Packet
+Tx_ip:		DS _ip_size 					; IP Header
+Tx_udp:		DS _udp_size					; UDP Header
+Tx_payload:	DS 100h - 50					; Bootloader protocol data
+Tx_status:	DS _tx_size						; 7-byte transmit status vector
+Tx_end:										; Bootloader Packet end pointer
 ORG 1F00h
-
-Tx_boot_start:	DS 1							; PER-PACKET CONTROL BYTE
-Tx_boot_mac:	DS _mac_size					; MAC Header
-Tx_boot_ip:		DS _ip_size 					; IP Header
-Tx_boot_udp:	DS _udp_size					; UDP Header
-Tx_boot:		DS 100h - 50					; Bootloader protocol data
-Tx_boot_status:	DS _tx_size						; 7-byte transmit status vector
-Tx_boot_end:									; Bootloader Packet end pointer
+TX_PAGE_BIT		EQU	0
+TX_PAGE_MASK	EQU	((1 << TX_PAGE_BIT) - 1)
 
 GLOBAL mem_init_data

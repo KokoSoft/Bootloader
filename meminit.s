@@ -35,6 +35,9 @@ mem_init_data:
 	REG_WRITE(LATB, 0x00)
 	REG_WRITE(TRISA, 11111100B)	; Configure RA0 and RA1 as outputs - ETH LEDs
 	REG_WRITE(TRISB, 11110000B)	; RB0 - RB3 Ledy
+
+	; Transmit Start Pointer High Byte
+	REG_WRITE(ETXSTH, HIGH(Tx_start))
     
 	; Receive filters configuration
 	REG_WRITE(ERXFCON, RX_FILTER)

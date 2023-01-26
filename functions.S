@@ -114,6 +114,10 @@ eth_write:
 ; Function jumps to done_frame on exit
 ;-------------------------------------------------------------------------------
 eth_send:
+	; Wait for transmitter idle
+	BTFSC	TXRTS
+	BRA		eth_send
+
 	; Set Tx start and end address based on Write Pointer
 	MOVF	EWRPTH, b, W	; start = write_ptr & 0xff000
 	MOVWF	ETXSTH, b

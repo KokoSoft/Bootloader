@@ -145,13 +145,18 @@ done_frame:
 	MOVLW	HIGH(eth_rx_end - 1)
 	MOVWF	ERXRDPTH, b
 
-
 wait_frame:					; Wait loop for receive network frame
 	BTFSS	PKTIF			; Receive Packet Pending Interrupt Flag bit		a EIR		F 60h
 	BRA		wait_frame
 
 	; Decrement EPKTCNT
 	BSF		PKTDEC			;												b ECON2		E FEh
+
+	; Switch Tx buffer page
+	MOVF	ETXSTH, b, W
+	BTG		WREG, TX_PAGE_BIT, a
+	MOVWF	EWRPTH, b
+
 
 ;-------------------------------------------------------------------------------
 ; Incoming frame parser
@@ -210,15 +215,8 @@ process_arp:
 	MOVWF	Rx_arp + _arp_op + 1, a
 
 	; Set ethernet buffer write pointer
-	MOVLW	HIGH(Tx_arp_mac + _mac_type)
-	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_arp_mac + _mac_type)
+	MOVLW	LOW(Tx_mac + _mac_type)
 	MOVWF	EWRPTL, b
-
-arp_wait_tx_free:
-	; Wait for transmitter idle
-	BTFSC	TXRTS
-	BRA		arp_wait_tx_free
 
 	; Write etherType and part of the ARP reply
 	LFSR	0, Rx_mac + _mac_type
@@ -375,9 +373,7 @@ bootloader_processor:
 	RCALL	eth_read
 
 	; Move eth write pointer to response start
-	MOVLW	HIGH(Tx_boot)
-	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_boot)
+	MOVLW	LOW(Tx_payload)
 	MOVWF	EWRPTL, b
 
 udp_wait_tx_free:
@@ -390,6 +386,7 @@ udp_wait_tx_free:
 	SETF	RCON, a
 	MOVFF	STKPTR, EDATA
 	MOVFF	ESTAT, EDATA
+	CLRF	ESTAT, a
 	MOVFF	EPKTCNT, EDATA
 
 	; Ethernet buffer pointers
@@ -463,15 +460,16 @@ udp_send:
 	; Calculate datagram length with header
 	; Store it also in checksum field. It will act as UDP Length field
 	; of the pseudo header
-	MOVLW	LOW(Tx_boot_udp)
+	MOVLW	LOW(Tx_udp)
 	SUBWF	EWRPTL, b, W
 	MOVWF	Rx_udp + _udp_len + 1, a
 	MOVWF	Rx_udp + _udp_cksum + 1, a
 	MOVWF	Rx_ip + _ip_len + 1, a
 	MOVWF	check_lenL, a
 
-	MOVLW	HIGH(Tx_boot_udp)
+	MOVLW	HIGH(Tx_udp)
 	SUBWFB	EWRPTH, b, W
+	ANDLW	TX_PAGE_MASK		; TODO: Tx Page Start variable
 	MOVWF	Rx_udp + _udp_len, a
 	MOVWF	Rx_udp + _udp_cksum, a
 	MOVWF	Rx_ip + _ip_len, a
@@ -495,9 +493,10 @@ udp_send:
 	SUBWFB	check_lenH, a, f
 
 	; Set ethernet read pointer
-	MOVLW	HIGH(Tx_boot)
+	MOVF	EWRPTH, b, W
+;	ANDWF	~TX_PAGE_MASK	; TODO: Tx Page Start variable
 	MOVWF	ERDPTH, a
-	MOVLW	LOW(Tx_boot)
+	MOVLW	LOW(Tx_payload)
 	MOVWF	ERDPTL, a
 
 	; Checksum UDP payload
@@ -562,13 +561,16 @@ ip_send:
 	MOVWF	Rx_ip + _ip_chsum + 1, a
 	
 	; Save the ethernet write pointer - datagram end marker
-	MOVFF	EWRPTH, ptrH
 	MOVFF	EWRPTL, ptrL
+	MOVF	EWRPTH, b, W
+	MOVWF	ptrH, a
+
+	; Rewind write pointer to beginning of the page
+;	ANDLW	~TX_PAGE_MASK	; TODO: Tx Page Start variable
+;	MOVWF	EWRPTH, b
 
 	; Move eth write pointer to EtherType of ETH header
-	MOVLW	HIGH(Tx_boot_mac + _mac_type)
-	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_boot_mac + _mac_type)
+	MOVLW	LOW(Tx_mac + _mac_type)
 	MOVWF	EWRPTL, b
 
 	; Write EtherType, IP and UDP header to the ethernet buffer
