@@ -53,8 +53,8 @@ PSECT code
 ;ORG	1FC00h
 start:
 	BRA		init
-	_BRA		mem_init
-	_BRA		reg_init
+	BRA		mem_init
+	BRA		reg_init
 
 ;-------------------------------------------------------------------------------
 ; Bootloader entry point
@@ -96,8 +96,8 @@ phy_init:
 	BRA		phy_init
 
 	; Call initialization functions
-	_RCALL	reg_init
-	_RCALL	mem_init
+	RCALL	reg_init
+	RCALL	mem_init
 
 	; ERXSTL is used as zero reg. Initialized by reg_init
 #define ZERO_REG	ERXSTL, b
@@ -166,7 +166,7 @@ parse_frame:
 	LFSR	2, Rx_buf		; Initialize Rx Buffer Pointer
 	
 	MOVLW	_rx_size + _mac_size
-	_RCALL	eth_read
+	RCALL	eth_read
 
 	; Ethernet has a minimum frame size of 64 bytes, comprising an 18-byte header and a payload of 46 bytes.
 	; It also has a maximum frame size of 1518 bytes, in which case the payload is 1500 bytes.
@@ -187,19 +187,19 @@ parse_frame:
 process_arp:
 	; Read the ARP packet from Eth to the buffer
 	MOVLW	_arp_size
-	_RCALL	eth_read
+	RCALL	eth_read
 
 	; Check hardware and protocol address type and length, operation
 	LFSR	0, Rx_arp
 	LFSR	1, arp_filter
 	MOVLW	ARP_FILTER_LENGTH
-	_RCALL	memcmp
+	RCALL	memcmp
 
 	; Is it directed to our IP?
 	LFSR	0, Rx_arp + _arp_dst_ip
 	LFSR	1, ip_addr
 	MOVLW	IP_ALEN
-	_RCALL	memcmp
+	RCALL	memcmp
 
 	inc_dw received_arp
 
@@ -218,22 +218,22 @@ process_arp:
 	; Write etherType and part of the ARP reply
 	LFSR	0, Rx_mac + _mac_type
 	MOVLW	2 + _arp_src_mac
-	_RCALL	eth_write
+	RCALL	eth_write
 
 	; Set our MAC and IP as source
 	LFSR	0, mac_addr
 	MOVLW	ETH_ALEN + IP_ALEN
-	_RCALL	eth_write
+	RCALL	eth_write
 
 	; Source MAC and IP from request -> destination MAC and IP in response
 	LFSR	0, Rx_arp + _arp_src_mac
 	MOVLW	ETH_ALEN + IP_ALEN
-	_RCALL	eth_write
+	RCALL	eth_write
 
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
 	BSF		LATB, 2, a
-	_BRA		eth_send
+	BRA		eth_send
 
 	
 	; Every internet module must be able to forward a datagram of 68
@@ -249,12 +249,12 @@ process_ip:	; IP Datagram
 
 	; Read IP header
 	MOVLW	_ip_size
-	_RCALL	eth_read
+	RCALL	eth_read
 
 	; IP header checksum calculation
 	LFSR	0, Rx_ip
 	MOVLW	_ip_size / 2
-	_RCALL	ip_checksum
+	RCALL	ip_checksum
 
 	; Check checksum
 	COMF	checksumL, a
@@ -276,7 +276,7 @@ process_ip:	; IP Datagram
 	MOVLW	IP_ALEN
 	; Skip if broadcast
 	BTFSS	Rx_buf + RX_BROADCAST, a
-	_RCALL	memcmp
+	RCALL	memcmp
 
 ip_dst_checked:
 	; Check flags - allow only don't fragment flag
@@ -301,7 +301,7 @@ ip_dst_checked:
 process_udp:
 	; Read UDP header
 	MOVLW	_udp_size
-	_RCALL	eth_read
+	RCALL	eth_read
 
 	; Compare IP length with UDP length
 	MOVF	Rx_ip + _ip_len + 1, a, W
@@ -320,7 +320,7 @@ process_udp:
 	; Add IP source and destination address + udp header
 	LFSR	0, Rx_ip + _ip_src
 	MOVLW	(2 * IP_ALEN + _udp_size) / 2	; in words
-	_RCALL	ip_checksum
+	RCALL	ip_checksum
 
 	; UDP payload length calculation
 	MOVLW	_udp_size
@@ -335,7 +335,7 @@ process_udp:
 	; Checksum UDP Payload
 	MOVFF	Rx_udp + _udp_len, check_lenH
 	MOVFF	Rx_udp + _udp_len + 1, check_lenL
-	_RCALL	eth_checksum_byte
+	RCALL	eth_checksum_byte
 
 	; Restore read pointer
 	MOVFF	ptrH, ERDPTH
@@ -366,7 +366,7 @@ bootloader_processor:
 
 	; Read current seq
 	MOVLW	4
-	_RCALL	eth_read
+	RCALL	eth_read
 
 	; If seq == 0 -> Set clear counters flag
 	CLRF	use_me, a
@@ -398,12 +398,12 @@ no_clear:
 	; Ethernet buffer pointers
 	LFSR	0, ERXRDPTL
 	MOVLW	4
-	_RCALL	eth_write
+	RCALL	eth_write
 
 	; Packets stats
 	LFSR	0, last_seq
 	MOVLW	4*4
-	_RCALL	eth_write
+	RCALL	eth_write
 
 	MOVFF	Rx_proto, last_seq
 	MOVFF	Rx_proto+1, last_seq+1
@@ -413,7 +413,7 @@ no_clear:
 	; Write current seq
 	LFSR	0, Rx_proto
 	MOVLW	4
-	_RCALL	eth_write
+	RCALL	eth_write
 
 	; Clear counters
 	MOVF	use_me, a, W
@@ -498,7 +498,7 @@ udp_send:
 	; Add ip source and destination address, UDP Header
 	LFSR	0, Rx_ip + _ip_src
 	MOVLW	(2 * IP_ALEN + _udp_size) / 2	; in words
-	_RCALL	ip_checksum
+	RCALL	ip_checksum
 
 	; Calculate payload length
 	MOVLW	_udp_size
@@ -513,7 +513,7 @@ udp_send:
 	MOVWF	ERDPTL, a
 
 	; Checksum UDP payload
-	_RCALL	eth_checksum_byte
+	RCALL	eth_checksum_byte
 
 	; Finalize udp checksum
 	; If the computed checksum is zero, it is transmitted as all ones
@@ -547,13 +547,13 @@ ip_send:
 	LFSR	0,	Rx_ip + _ip_src
 	LFSR	1,	Rx_ip + _ip_dst
 	MOVLW	IP_ALEN
-	_RCALL	memcpy
+	RCALL	memcpy
 
 	; Source and destination address
 	LFSR	0,	ip_addr
 	LFSR	1,	Rx_ip + _ip_src
 	MOVLW	IP_ALEN
-	_RCALL	memcpy
+	RCALL	memcpy
 
 	; Clear IP checksum field
 	CLRF	Rx_ip + _ip_chsum, a
@@ -565,7 +565,7 @@ ip_send:
 
 	LFSR	0,	Rx_ip
 	MOVLW	_ip_size / 2
-	_RCALL	ip_checksum
+	RCALL	ip_checksum
 
 	; Set IP checksum field
 	COMF	checksumH, a, W
@@ -587,7 +587,7 @@ ip_send:
 	; Source and destination MAC will be written by eth_write
 	LFSR	0, Rx_mac + _mac_type
 	MOVLW	2 + _ip_size + _udp_size
-	_RCALL	eth_write
+	RCALL	eth_write
 
 	; Restore the ethernet write pointer
 	MOVFF	ptrH, EWRPTH
@@ -598,6 +598,6 @@ ip_send:
 ;	BRA gdb
 	;BCF		LATB, 3, a
 	; Send data!
-	_BRA		eth_send
+	BRA		eth_send
 	
 END start; Bootloader entry point

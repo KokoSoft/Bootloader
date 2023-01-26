@@ -12,7 +12,7 @@
 PSECT code
 
 GLOBAL init
-	_BRA	init
+	BRA	init
 ;-------------------------------------------------------------------------------
 ; Memory initializer (34 words)
 ; Set Flash pointer (TBLPTRU:TBLPTRH:TBLPTRL) before calling this function
@@ -148,7 +148,7 @@ eth_send:
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
-	_BRA	done_frame
+	BRA	done_frame
 	
 
 
@@ -166,7 +166,7 @@ memcmp_continue:
 	; Compare
 	MOVF	POSTINC0, a, W
 	XORWF	POSTINC1, a, W
-	_BNZ	done_frame_pop
+	BNZ		done_frame_pop
 
 	; Loop control
 	DECF	temp0, f, a
