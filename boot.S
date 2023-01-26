@@ -309,6 +309,7 @@ process_udp:
 	BNZ		done_frame
 	MOVF	Rx_ip + _ip_len, a, W
 	XORWF	Rx_udp + _udp_len, a, W
+done_frame_bnz:
 	BNZ		done_frame
 
 	; Compute checksum
@@ -347,18 +348,18 @@ process_udp:
 	; call ip_checksum with checksum in FSR0 will requre 2 words more.
 	COMF	Rx_ip + _ip_len, a, W
 	XORWF	checksumH, a, f		; XOR with checksum to clear checksum variable
-	BNZ		done_frame
+	BNZ		done_frame_bnz
 	COMF	Rx_ip + _ip_len + 1, a, W
 	XORWF	checksumL, a, f
-	BNZ		done_frame
+	BNZ		done_frame_bnz
 
 	; Check destination port
 	MOVLW	HIGH(UDP_PORT)
 	XORWF	Rx_udp + _udp_dst, a, W
-	BNZ		done_frame
+	BNZ		done_frame_bnz
 	MOVLW	LOW(UDP_PORT)
 	XORWF	Rx_udp + _udp_dst + 1, a, W
-	BNZ		done_frame
+	BNZ		done_frame_bnz
 
 
 bootloader_processor:
