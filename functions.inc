@@ -118,33 +118,86 @@ GLOBAL eth_checksum_byte
 ; Premium version, 1 more instruction, 3 cycles per word less.
 GLOBAL eth_checksum
 
+;-------------------------------------------------------------------------------
+; Workaround for Microchip buggy assembler! This piece of shit produce invalid jumps between files
+; and does not check relative jump range!
+;-------------------------------------------------------------------------------
+#define OPCODE_BC					1110001000000000B
+#define OPCODE_BN					1110011000000000B
+#define OPCODE_BNC					1110001100000000B
+#define OPCODE_BNN					1110011100000000B
+#define OPCODE_BNOV					1110010100000000B
+#define OPCODE_BNZ					1110000100000000B
+#define OPCODE_BOV					1110010000000000B
+#define OPCODE_BRA					1101000000000000B
+#define OPCODE_BZ					1110000000000000B
+#define OPCODE_RCALL				1101100000000000B
+#define OPCODE_SLEEP				0000000000000011B
 
+#define REL_DIFF(address, len)		((((address) - $ - 2) >> 1) and ((1 << len)-1))
+#define REL_DIFF_SIMPLE(address)	((address) - $ - 2)
+
+#define ADDR_SHIFT(x, bit)			(REL_DIFF_SIMPLE((x)) >> (bit))
+#define ADDR_ERROR(addr, len)		((ADDR_SHIFT(addr, len) ^ ADDR_SHIFT(addr, len + 1)) and 0x01)
+
+; Clears value on error
+#define NULLIFY(opcode, error)		(opcode) * (1 - (error))
+
+; Produce sleep instruction on error
+#define SLEEPIFY(error)				(OPCODE_SLEEP * (error))
+
+; Produce forever loop on error
+#define LOOPIFY(error)				(0000000000000011B * (error))
+
+; Generate opcode with error checking
+#define OPCODE(code, addr, len)		NULLIFY(code | REL_DIFF(addr, len), ADDR_ERROR(addr, len)) | SLEEPIFY(ADDR_ERROR(addr, len))
+
+#define BC		_BC
+_BC MACRO address
+	DW OPCODE(OPCODE_BC, address, 8)
+ENDM
+
+#define BN		_BN
+_BN MACRO address
+	DW OPCODE(OPCODE_BN, address, 8)
+ENDM
+
+#define BNC		_BNC
+_BNC MACRO address
+	DW OPCODE(OPCODE_BNC, address, 8)
+ENDM
+
+#define BNN		_BNN
+_BNN MACRO address
+	DW OPCODE(OPCODE_BNN, address, 8)
+ENDM
+
+#define BNOV	_BNOV	
+_BNOV	 MACRO address
+	DW OPCODE(OPCODE_BNOV, address, 8)
+ENDM
+
+#define BOV		_BOV
+_BOV MACRO address
+	DW OPCODE(OPCODE_BOV, address, 8)
+ENDM
+
+#define BZ		_BZ
+_BZ MACRO address
+	DW OPCODE(OPCODE_BZ, address, 8)
+ENDM
+
+#define BRA		_BRA
 _BRA MACRO address
-	;;IF ((address - $ - 2) > 1023)
-	;;	ERROR	"BRA address too big!"
-	;;ENDIF
-	;;IF (address - $ - 2) < -1024
-	;;	ERROR	"BRA address too small!"
-	;;ENDIF
-	DW	1101000000000000B | (((address - $ - 2) shr 1) and 0x7ff)
+	DW OPCODE(OPCODE_BRA, address, 11)
 ENDM
 
+#define BNZ		_BNZ
 _BNZ MACRO address
-	;;IF ((address - $ - 2) > 255)
-	;;	ERROR	"BRA address too big!"
-	;;ENDIF
-	;;IF (address - $ - 2) < -256
-	;;	ERROR	"BRA address too small!"
-	;;ENDIF
-	DW	1110000100000000B | (((address - $ - 2) shr 1) and 0xff)
+	DW OPCODE(OPCODE_BNZ, address, 8)
 ENDM
 
+#define RCALL	_RCALL
 _RCALL MACRO address
-	;;IF ((address - $ - 2) > 1023)
-	;;	ERROR	"RCALL address too big!"
-	;;ENDIF
-	;;IF (address - $ - 2) < -1024
-	;;	ERROR	"RCALL address too small!"
-	;;ENDIF
-	DW	1101100000000000B | (((address - $ - 2) shr 1) and 0x7ff)
+	DW OPCODE(OPCODE_RCALL, address, 11)
 ENDM
