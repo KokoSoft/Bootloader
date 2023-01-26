@@ -215,6 +215,11 @@ process_arp:
 	MOVLW	LOW(Tx_arp_mac + _mac_type)
 	MOVWF	EWRPTL, b
 
+arp_wait_tx_free:
+	; Wait for transmitter idle
+	BTFSC	TXRTS
+	BRA		arp_wait_tx_free
+
 	; Write etherType and part of the ARP reply
 	LFSR	0, Rx_mac + _mac_type
 	MOVLW	2 + _arp_src_mac
@@ -369,32 +374,23 @@ bootloader_processor:
 	MOVLW	4
 	RCALL	eth_read
 
-	; If seq == 0 -> Set clear counters flag
-	CLRF	use_me, a
-	MOVF	Rx_proto, a, W
-	BNZ		no_clear
-	MOVF	Rx_proto+1, a, W
-	BNZ		no_clear
-	MOVF	Rx_proto+2, a, W
-	BNZ		no_clear
-	MOVF	Rx_proto+3, a, W
-	BNZ		no_clear
-	MOVLW	1
-	IORWF	use_me, a, f
-no_clear:
-
 	; Move eth write pointer to response start
 	MOVLW	HIGH(Tx_boot)
 	MOVWF	EWRPTH, b
 	MOVLW	LOW(Tx_boot)
 	MOVWF	EWRPTL, b
 
+udp_wait_tx_free:
+	; Wait for transmitter idle
+	BTFSC	TXRTS
+	BRA		udp_wait_tx_free
+
 	; Firmware status
 	MOVFF	RCON, EDATA
 	SETF	RCON, a
 	MOVFF	STKPTR, EDATA
 	MOVFF	ESTAT, EDATA
-	MOVFF	use_me, EDATA
+	MOVFF	EPKTCNT, EDATA
 
 	; Ethernet buffer pointers
 	LFSR	0, ERXRDPTL
@@ -417,8 +413,8 @@ no_clear:
 	RCALL	eth_write
 
 	; Clear counters
-	MOVF	use_me, a, W
-	BZ		payload
+	BTFSS	Rx_proto+3, 7, a
+	BRA		payload
 	LFSR	0, boot_counter
 	MOVLW	3*4
 clear_stats:
@@ -448,15 +444,6 @@ payload_end:
 
 
 
-
-	; Write payload xored payload
-;payload:
-;	BNC		payload_end
-;	MOVFF	EDATA, WREG
-;	XORLW	0x5A
-;	MOVFF	WREG, EDATA
-;	BRA		payload
-;payload_end:
 
 
 
