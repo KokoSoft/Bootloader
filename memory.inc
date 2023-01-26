@@ -42,6 +42,15 @@ VAR_ptr:			DS 2
 ; Parameter for eth_checksum
 ; Lenght of a data to be checksumed
 VAR_check_len:		DS 2
+; 0x0A
+VAR_last_seq:		DS 4
+; 0x0E
+VAR_boot_counter:	DS 4
+; 0x12
+VAR_received_udp:	DS 4
+; 0x16
+VAR_received_arp:	DS 4
+; 0x1A = 24
 
 
 ;ALIGN 0x10 DO NOT USE ALIGN!!!! Assembler bug?!

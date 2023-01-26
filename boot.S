@@ -9,6 +9,13 @@
 #include "memory.inc"
 #include "functions.inc"
 
+inc_dw MACRO var
+	MOVLW	0
+	INCF	LE_BYTE(var, L), VAR_ACCESS, f
+	ADDWFC	LE_BYTE(var, H), VAR_ACCESS, f
+	ADDWFC	LE_BYTE(var, UL), VAR_ACCESS, f
+	ADDWFC	LE_BYTE(var, UH), VAR_ACCESS, f
+ENDM
 
 PSECT code
 
@@ -71,6 +78,8 @@ phy_init:
 	; Enable packet reception
 	MOVLW	ECON1_RXEN_MASK			; Receive Enable
 	MOVWF	ECON1, a				; ETHERNET CONTROL REGISTER 1
+
+	inc_dw VAR_ADDR(boot_counter)
 
 ;-------------------------------------------------------------------------------
 ; Frame processor
@@ -161,6 +170,8 @@ process_arp:
 	LFSR	1, ip_addr
 	MOVLW	IP_ALEN
 	RCALL	memcmp
+
+	inc_dw VAR_ADDR(received_arp)
 
 	; Prepare ARP reply
 
@@ -332,12 +343,91 @@ done_frame_bnz:
 	BNZ		done_frame_bnz
 
 
+
 bootloader_processor:
+	inc_dw VAR_ADDR(received_udp)
+
+	; Read current seq
+	MOVLW	4
+	RCALL	eth_read
+
 	; Move eth write pointer to response start
 	eth_write_pos	TX_PROTO(boot)
 
 	; Wait for transmitter idle before modifying the buffer content
 	tx_wait
+
+	; Firmware status
+	MOVFF	RCON, EDATA
+	SETF	RCON, a
+	MOVFF	STKPTR, EDATA
+	MOVFF	ESTAT, EDATA
+	CLRF	ESTAT, b
+	MOVFF	EPKTCNT, EDATA
+
+	; Ethernet buffer pointers
+	LFSR	0, ERXRDPTL
+	MOVLW	4
+	RCALL	eth_write
+
+	; Packets stats
+	LFSR	0, VAR_ADDR(last_seq)
+	MOVLW	4*4
+	RCALL	eth_write
+
+	MOVFF	RX_PROTO(proto)+3, VAR32_ADDR(last_seq, UH)
+	MOVFF	RX_PROTO(proto)+2, VAR32_ADDR(last_seq, UL)
+	MOVFF	RX_PROTO(proto)+1, VAR32_ADDR(last_seq, H)
+	MOVFF	RX_PROTO(proto)+0, VAR32_ADDR(last_seq, L)
+
+	; Write current seq
+	LFSR	0, RX_PROTO(proto)
+	MOVLW	4
+	RCALL	eth_write
+
+	; Clear counters
+	BTFSS	RX_PROTO(proto)+3, 7, a
+	BRA		payload
+	LFSR	0, VAR_ADDR(boot_counter)
+	MOVLW	3*4
+clear_stats:
+	CLRF	POSTINC0, a
+	DECF	WREG, a, f
+	BNZ		clear_stats
+
+payload:
+; Substract seq length
+	MOVLW	4
+	SUBWF	RX_BE16(udp, len, L), f
+	MOVLW	0
+	SUBWFB	RX_BE16(udp, len, H), f
+	BNZ		payload_start
+	MOVF	RX_BE16(udp, len, L), W
+	BZ		payload_end
+
+payload_start:
+
+	; Write xored payload
+	MOVLW	0x5A
+
+payload_sub:
+	DECF	RX_BE16(udp, len, L), f
+	BC		payload_byte
+	DECF	RX_BE16(udp, len, H), f
+	BNC		payload_end
+payload_byte:
+	MOVFF	EDATA, VAR8_ADDR(temp0)
+	XORWF	VAR8(temp0), W
+	MOVFF	WREG, EDATA
+	BRA		payload_sub
+payload_end:
+
+
+
+
+
+
+
 
 
 
