@@ -17,7 +17,7 @@ PSECT rx_buffer,abs, ovrld, space=1,class=COMRAM
 ;-------------------------------------------------------------------------------
 ; Access RAM (0x00 - 0x5F)
 temp0:			DS 1
-use_me:			DS 1
+tx_page:		DS 1
 
 ; Used to store partial checksum by eth_checksum_ptr, eth_checksum_byte, eth_checksum, ip_checksum
 checksumH:		DS 1
@@ -87,7 +87,7 @@ ip_addr			EQU mac_addr + ETH_ALEN
 PSECT ethernet_buffer,abs,local,noexec,note,size=2000h,space=100,class=ETH
 ;ALIGN 2
 eth_rx_start:
-ORG 1E00h
+ORG 1C00h
 eth_rx_end:
 
 Tx_start:	DS 1							; PER-PACKET CONTROL BYTE
@@ -99,7 +99,6 @@ Tx_payload:	DS 100h - 50					; Bootloader protocol data
 Tx_status:	DS _tx_size						; 7-byte transmit status vector
 Tx_end:										; Bootloader Packet end pointer
 ORG 1F00h
-TX_PAGE_BIT		EQU	0
-TX_PAGE_MASK	EQU	((1 << TX_PAGE_BIT) - 1)
+TX_PAGE_BIT		EQU	1						; This is bit number, not a bit mask!
 
 GLOBAL mem_init_data

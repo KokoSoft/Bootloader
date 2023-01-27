@@ -119,14 +119,19 @@ eth_send:
 	BRA		eth_send
 
 	; Set Tx start and end address based on Write Pointer
-	MOVF	EWRPTH, b, W	; start = write_ptr & 0xff000
-	MOVWF	ETXSTH, b
-	MOVWF	ETXNDH, b
+	MOVFF	tx_page, ETXSTH
+
+	MOVFF	EWRPTH, ETXNDH
+
 	DECF	EWRPTL, b, W	; end = write_ptr - 1
 	MOVWF	ETXNDL, b
+	CLRF	WREG, a
+	SUBWFB	ETXNDH, b, f
 
 	; Move write pointer to eth header
+	MOVFF	tx_page, EWRPTH
 	CLRF	EWRPTL, b
+	; Can save one instruction, if we accept incrementation of RDPT
 	MOVFF	EWRPTL, EDATA	; per-packet control byte
 
 	; Set destination MAC to source MAC of received frame
@@ -140,11 +145,11 @@ eth_send:
 	RCALL	eth_write
 
 	; DEBUG
-	CLRF	ERDPTL, a
-	MOVFF	EWRPTH, ERDPTH
-	LFSR	2, 0x100
-	CLRF	WREG, a
-	RCALL	eth_read
+	;CLRF	ERDPTL, a
+	;MOVFF	EWRPTH, ERDPTH
+	;LFSR	2, 0x100
+	;CLRF	WREG, a
+	;RCALL	eth_read
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2

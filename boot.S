@@ -156,6 +156,7 @@ wait_frame:					; Wait loop for receive network frame
 	MOVF	ETXSTH, b, W
 	BTG		WREG, TX_PAGE_BIT, a
 	MOVWF	EWRPTH, b
+	MOVWF	tx_page, a
 
 
 ;-------------------------------------------------------------------------------
@@ -376,17 +377,12 @@ bootloader_processor:
 	MOVLW	LOW(Tx_payload)
 	MOVWF	EWRPTL, b
 
-udp_wait_tx_free:
-	; Wait for transmitter idle
-	BTFSC	TXRTS
-	BRA		udp_wait_tx_free
-
 	; Firmware status
 	MOVFF	RCON, EDATA
 	SETF	RCON, a
 	MOVFF	STKPTR, EDATA
 	MOVFF	ESTAT, EDATA
-	CLRF	ESTAT, a
+	SETF	ESTAT, a
 	MOVFF	EPKTCNT, EDATA
 
 	; Ethernet buffer pointers
@@ -423,16 +419,27 @@ payload:
 ; Substract seq length
 	MOVLW	4
 	SUBWF	Rx_udp + _udp_len + 1, a, f
+	MOVLW	0
+	SUBWFB	Rx_udp + _udp_len, a, f
+	BNZ		payload_start
+	MOVF	Rx_udp + _udp_len + 1, a, W
 	BZ		payload_end
+
+payload_start:
 
 	; Write xored payload
 	MOVLW	0x5A
+
+payload_sub:
+	DECF	Rx_udp + _udp_len + 1, a, f
+	BC		payload_byte
+	DECF	Rx_udp + _udp_len, a, f
+	BNC		payload_end
 payload_byte:
 	MOVFF	EDATA, temp0
 	XORWF	temp0, a, W
 	MOVFF	WREG, EDATA
-	DECF	Rx_udp + _udp_len + 1, a, f
-	BNZ		payload_byte
+	BRA		payload_sub
 payload_end:
 
 
@@ -467,9 +474,8 @@ udp_send:
 	MOVWF	Rx_ip + _ip_len + 1, a
 	MOVWF	check_lenL, a
 
-	MOVLW	HIGH(Tx_udp)
+	MOVF	tx_page, a, W
 	SUBWFB	EWRPTH, b, W
-	ANDLW	TX_PAGE_MASK		; TODO: Tx Page Start variable
 	MOVWF	Rx_udp + _udp_len, a
 	MOVWF	Rx_udp + _udp_cksum, a
 	MOVWF	Rx_ip + _ip_len, a
@@ -493,9 +499,7 @@ udp_send:
 	SUBWFB	check_lenH, a, f
 
 	; Set ethernet read pointer
-	MOVF	EWRPTH, b, W
-;	ANDWF	~TX_PAGE_MASK	; TODO: Tx Page Start variable
-	MOVWF	ERDPTH, a
+	MOVFF	tx_page, ERDPTH
 	MOVLW	LOW(Tx_payload)
 	MOVWF	ERDPTL, a
 
@@ -565,11 +569,8 @@ ip_send:
 	MOVF	EWRPTH, b, W
 	MOVWF	ptrH, a
 
-	; Rewind write pointer to beginning of the page
-;	ANDLW	~TX_PAGE_MASK	; TODO: Tx Page Start variable
-;	MOVWF	EWRPTH, b
-
 	; Move eth write pointer to EtherType of ETH header
+	MOVFF	tx_page, EWRPTH
 	MOVLW	LOW(Tx_mac + _mac_type)
 	MOVWF	EWRPTL, b
 
