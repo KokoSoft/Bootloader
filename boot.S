@@ -219,8 +219,7 @@ process_ip:	; IP Datagram
 
 	; IP header checksum calculation
 	LFSR	0, RX_PROTO(ip)
-	MOVLW	_ip_size / 2
-	RCALL	ip_checksum
+	ip_header_checksum
 
 	; Check checksum
 	COMF	VAR16(checksum, L)
@@ -449,8 +448,7 @@ ip_send:
 	CLRF	VAR16(checksum, L)
 
 	LFSR	0,	RX_PROTO(ip)
-	MOVLW	_ip_size / 2
-	RCALL	ip_checksum
+	ip_header_checksum
 
 	; Set IP checksum field
 	COMF	VAR16(checksum, H), W
