@@ -156,29 +156,6 @@ eth_send:
 	BRA	done_frame
 	
 
-
-;-------------------------------------------------------------------------------
-; Compare memory, return to done_frame on mismatch
-; W - compare length, 0 will compare 256 bytes
-; FSR0, FSR1 - Pointers to data
-; Function jumps to done_frame_pop if the memory differs
-; Uses temp0!
-;-------------------------------------------------------------------------------
-memcmp:
-	MOVWF	temp0, a
-
-memcmp_continue:
-	; Compare
-	MOVF	POSTINC0, a, W
-	XORWF	POSTINC1, a, W
-	BNZ		done_frame_pop
-
-	; Loop control
-	DECF	temp0, f, a
-	BNZ		memcmp_continue
-	RETURN
-
-
 ;-------------------------------------------------------------------------------
 ; Copy memory
 ; W - data length, 0 will copy 256 bytes
@@ -273,42 +250,7 @@ ENDM
 
 
 
-
-
-
 #if 0
-; TODO: To be removed.
-;-------------------------------------------------------------------------------
-; Ethernet read with IP Checksum
-; Super simple implementation. Operates on words only.
-; FSR2 - Destination pointer
-; WREG - words count, 0 will compute 256 words
-; Uses temp0!
-; Can save 1 instruction, but will use 3 more cycles per word.
-;-------------------------------------------------------------------------------
-; Premium version, 1 more instruction, 3 cycles per word less.
-eth_read_checksum:
-	MOVWF	temp0, a
-	BCF		CARRY					; Clear carry flag
-
-eth_read_checksum_continue:
-	MOVF	EDATA, a, W
-	MOVWF	POSTINC2, a
-	ADDWFC	checksumH, a, f
-	MOVF	EDATA, a, W
-	MOVWF	POSTINC2, a
-	ADDWFC	checksumL, a, f
-
-	DECFSZ	temp0, a, f				; Decrement Skip if 0 - no carry flag modification
-	BRA		eth_read_checksum_continue
-
-	MOVLW	0
-	ADDWFC	checksumH, a, f
-	ADDWFC	checksumL, a, f
-	RETURN
-#endif
-
-
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer
 ; Super simple implementation. Operates on words only.
@@ -350,7 +292,7 @@ eth_checksum_continue:
 	ADDWFC	checksumH, a, f
 	ADDWFC	checksumL, a, f
 	RETURN
-
+#endif
 
 #if 0
 ;-------------------------------------------------------------------------------
@@ -396,35 +338,94 @@ loop_done:
 	RETURN
 #endif
 
-
-#if 0
-PSECT code
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer
-; Super simple implementation. Operates on words only.
-; Uses EWRPT as end address
-; Warning! Will loop forever if (ERDPT & 1) != (EWRPT & 1)
-; Can save 1 instruction, but will use 3 more cycles per word.
-; 14 instructions
+; Fast implementation, operates on double words, words, support byte
+; check_lenH:check_lenL - data length in bytes.
+; Uses temp0!
+; 46 instructions
 ;-------------------------------------------------------------------------------
-; Premium version, 1 more instruction, 3 cycles per word less.
-eth_checksum_ptr:
-	BCF		CARRY					; Clear carry flag
+eth_checksum_byte:
+    MOVFF   check_lenL, temp0
+    BCF     CARRY                   ; Clear carry flag
+    RRCF    check_lenH, a, f        ; size >>= 1;
+    RRCF    check_lenL, a, f
+    BCF     CARRY                   ; Clear carry flag
+    RRCF    check_lenH, a, f        ; size >>= 1;
+    RRCF    check_lenL, a, f
 
-eth_checksum_ptr_continue:
+    BCF     CARRY                   ; Clear carry flag
+    MOVF    check_lenL, a, f
+    BNZ     eth_checksum_dword
+
+eth_checksum_check_dword:                         ; sizeL is 0
+    MOVF    check_lenH, a, f
+    BZ      eth_checksum_check_word
+    DECFSZ  check_lenH, a, f           ; Decrement Skip if 0 - no carry flag modification
+    NOP
+
+eth_checksum_dword:
 	MOVF	EDATA, a, W
-	ADDWFC	checksumH, a, f
+    ADDWFC  checksumH, a, f
+    MOVF	EDATA, a, W
+    ADDWFC  checksumL, a, f
 	MOVF	EDATA, a, W
-	ADDWFC	checksumL, a, f
+    ADDWFC  checksumH, a, f
+    MOVF	EDATA, a, W
+    ADDWFC  checksumL, a, f
 
-	MOVF	ERDPTL, a, W
-	XORWF	EWRPTL, b, W
-	BNZ		eth_checksum_ptr_continue
-	MOVF	ERDPTH, a, W
-	XORWF	EWRPTH, b, W
-	BNZ		eth_checksum_ptr_continue
+    DCFSNZ  check_lenL, a, f           ; Decrement Skip if not 0 - no carry flag modification
+    BRA     eth_checksum_check_dword
+    BRA     eth_checksum_dword
 
-	ADDWFC	checksumH, a, f
-	ADDWFC	checksumL, a, f
+eth_checksum_check_word:
+    ; Handle single word
+    BTFSS   temp0, 1, a
+    BRA     eth_checksum_check_byte
+
+	MOVF	EDATA, a, W
+    ADDWFC  checksumH, a, f
+    MOVF	EDATA, a, W
+    ADDWFC  checksumL, a, f
+
+eth_checksum_check_byte:
+    BTFSC   temp0, 0, a
+    BRA     eth_checksum_single_byte
+	; No byte
+    MOVLW   0
+    ADDWFC  checksumH, a, f
+    ADDWFC  checksumL, a, f
+    RETURN
+
+eth_checksum_single_byte:
+    MOVF	EDATA, a, W
+    ADDWFC  checksumH, a, f
+    MOVLW   0
+    ADDWFC  checksumL, a, f
+    ADDWFC  checksumH, a, f
+    RETURN
+
+
+
+
+
+;-------------------------------------------------------------------------------
+; Compare memory, return to done_frame on mismatch
+; W - compare length, 0 will compare 256 bytes
+; FSR0, FSR1 - Pointers to data
+; Function jumps to done_frame_pop if the memory differs
+; Uses temp0!
+;-------------------------------------------------------------------------------
+memcmp:
+	MOVWF	temp0, a
+
+memcmp_continue:
+	; Compare
+	MOVF	POSTINC0, a, W
+	XORWF	POSTINC1, a, W
+	BNZ		done_frame_pop
+
+	; Loop control
+	DECF	temp0, f, a
+	BNZ		memcmp_continue
 	RETURN
-#endif

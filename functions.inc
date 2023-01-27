@@ -116,7 +116,7 @@ GLOBAL eth_checksum_byte
 ; 12 instructions
 ;-------------------------------------------------------------------------------
 ; Premium version, 1 more instruction, 3 cycles per word less.
-GLOBAL eth_checksum
+;GLOBAL eth_checksum
 
 ;-------------------------------------------------------------------------------
 ; IP Header Checksum
