@@ -119,6 +119,13 @@ GLOBAL eth_checksum_byte
 GLOBAL eth_checksum
 
 ;-------------------------------------------------------------------------------
+; IP Header Checksum
+; Huge, super fast checksum for ip header only (20 bytes)
+; FSR0 - Source pointer
+;-------------------------------------------------------------------------------
+GLOBAL ip_header_checksum						; 44 instructions
+
+;-------------------------------------------------------------------------------
 ; Workaround for Microchip buggy assembler! This piece of shit produce invalid jumps between files
 ; and does not check relative jump range!
 ;-------------------------------------------------------------------------------
