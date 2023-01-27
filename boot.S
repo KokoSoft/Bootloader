@@ -257,8 +257,7 @@ process_ip:	; IP Datagram
 
 	; IP header checksum calculation
 	LFSR	0, Rx_ip
-	MOVLW	_ip_size / 2
-	RCALL	ip_checksum
+	RCALL	ip_header_checksum
 
 	; Check checksum
 	COMF	checksumL, a
@@ -555,8 +554,7 @@ ip_send:
 	CLRF	checksumL, a
 
 	LFSR	0,	Rx_ip
-	MOVLW	_ip_size / 2
-	RCALL	ip_checksum
+	RCALL	ip_header_checksum
 
 	; Set IP checksum field
 	COMF	checksumH, a, W
