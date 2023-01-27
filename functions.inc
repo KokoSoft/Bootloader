@@ -187,3 +187,20 @@ eth_restore_write_ptr MACRO
 	MOVFF	VAR16_ADDR(ptr, H), EWRPTH
 	MOVFF	VAR16_ADDR(ptr, L), EWRPTL	
 ENDM
+
+#if IP_HEADER_FAST_CHECKSUM
+;-------------------------------------------------------------------------------
+; IP Header Checksum
+; Huge, super fast checksum for ip header only (20 bytes)
+; FSR0 - Source pointer
+;-------------------------------------------------------------------------------
+ip_header_checksum MACRO
+	RCALL	ip_header_checksum_fun
+ENDM
+GLOBAL ip_header_checksum_fun					; 44 instructions
+#else
+ip_header_checksum MACRO
+	MOVLW	_ip_size / 2
+	RCALL	ip_checksum
+ENDM
+#endif

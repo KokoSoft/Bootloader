@@ -20,6 +20,9 @@ UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 
 ; 854+89
 
+/* Use dedicated function to checksum ip header */
+#define IP_HEADER_FAST_CHECKSUM		0
+
 ; Allow write multiple sectors with single frame - costs 12 instructions
 #define MULTIBLOCK_WRITE			0
 ; Use bigger net_config frame (two MAC address formats) - save 8 instructions

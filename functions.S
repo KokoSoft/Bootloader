@@ -235,6 +235,41 @@ ip_checksum_continue:
 	RETURN
 #endif
 
+
+#if IP_HEADER_FAST_CHECKSUM
+;-------------------------------------------------------------------------------
+; IP Header Checksum
+; Huge, super fast checksum for ip header only (20 bytes)
+; FSR0 - Source pointer
+;-------------------------------------------------------------------------------
+ip_header_checksum_fun:						; 44 instructions
+	; Process first word
+	MOVF	POSTINC0, a, W
+	ADDWF	VAR16(checksum, H), f
+	MOVF	POSTINC0, a, W
+	ADDWFC	VAR16(checksum, L), f
+
+	; Process the remaining 9 words
+REPT 9
+	MOVF	POSTINC0, a, W
+	ADDWFC	VAR16(checksum, H), f
+	MOVF	POSTINC0, a, W
+	ADDWFC	VAR16(checksum, L), f
+ENDM
+
+	; Store carry in sum
+	MOVLW	0
+	ADDWFC	VAR16(checksum, H), f
+	ADDWFC	VAR16(checksum, L), f
+
+	RETURN
+#endif
+
+
+
+
+
+
 #if 0
 ; TODO: To be removed.
 ;-------------------------------------------------------------------------------
