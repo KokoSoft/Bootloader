@@ -153,11 +153,9 @@ wait_frame:					; Wait loop for receive network frame
 	BSF		PKTDEC			;												b ECON2		E FEh
 
 	; Switch Tx buffer page
-	MOVF	ETXSTH, b, W
-	BTG		WREG, TX_PAGE_BIT, a
+	MOVLW	HIGH(Tx_start)
 	MOVWF	EWRPTH, b
 	MOVWF	tx_page, a
-
 
 ;-------------------------------------------------------------------------------
 ; Incoming frame parser

@@ -151,9 +151,19 @@ eth_send:
 	;CLRF	WREG, a
 	;RCALL	eth_read
 
+	MOVF	Rx_mac + _mac_type + 1, a, W
+	BZ		tx_hell
+	
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
 	BRA	done_frame
+	
+tx_hell:
+	; Wait for transmitter idle
+	BTFSC	TXRTS
+	BRA		tx_hell
+	BSF		TXRTS			; ECON1 = FD2
+	BRA		tx_hell
 	
 
 ;-------------------------------------------------------------------------------
