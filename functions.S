@@ -114,14 +114,8 @@ eth_write:
 ; Function jumps to done_frame on exit
 ;-------------------------------------------------------------------------------
 eth_send:
-	; Wait for transmitter idle
-	BTFSC	TXRTS
-	BRA		eth_send
-
 	; Set Tx start and end address based on Write Pointer
-	MOVF	EWRPTH, b, W	; start = write_ptr & 0xff000
-	MOVWF	ETXSTH, b
-	MOVWF	ETXNDH, b
+	MOVFF	EWRPTH, ETXNDH	; start = write_ptr & 0xff000
 	DECF	EWRPTL, b, W	; end = write_ptr - 1
 	MOVWF	ETXNDL, b
 
@@ -134,17 +128,19 @@ eth_send:
 	MOVLW	ETH_ALEN
 	RCALL	eth_write
 
-	; Set out MAC as source address
+	; Set our MAC as source address
 	LFSR	0, mac_addr
 	MOVLW	ETH_ALEN
 	RCALL	eth_write
 
+#if 0
 	; DEBUG
 	CLRF	ERDPTL, a
 	MOVFF	EWRPTH, ERDPTH
 	LFSR	2, 0x100
 	CLRF	WREG, a
 	RCALL	eth_read
+#endif
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2

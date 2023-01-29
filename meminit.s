@@ -67,6 +67,9 @@ mem_init_data:
 	; PHY MODULE LED CONTROL REGISTER
 	MII_WRITE(PHLCON, PHY_LED)
 
+	REG_WRITE(ETXSTH, HIGH(Tx_start))
+	REG_WRITE(ETXSTL, LOW(Tx_start))
+
 	REG_WRITE(LATB, 0x01)
 
 	DB 0 ; End marker

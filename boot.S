@@ -198,10 +198,15 @@ process_arp:
 	MOVWF	Rx_arp + _arp_op + 1, a
 
 	; Set ethernet buffer write pointer
-	MOVLW	HIGH(Tx_arp_mac + _mac_type)
+	MOVLW	HIGH(Tx_mac + _mac_type)
 	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_arp_mac + _mac_type)
+	MOVLW	LOW(Tx_mac + _mac_type)
 	MOVWF	EWRPTL, b
+
+	; Wait for transmitter idle
+process_arp_tx_idle:
+	BTFSC	TXRTS
+	BRA		process_arp_tx_idle
 
 	; Write etherType and part of the ARP reply
 	LFSR	0, Rx_mac + _mac_type
@@ -354,38 +359,22 @@ done_frame_bnz:
 
 bootloader_processor:
 
+
+
+	; Wait for transmitter idle
+bootloader_tx_idle:
+	BTFSC	TXRTS
+	BRA		bootloader_tx_idle
+
+
+
 ; Move eth write pointer to ip header
 	MOVLW	HIGH(Tx_boot)
 	MOVWF	EWRPTH, b
 	MOVLW	LOW(Tx_boot)
 	MOVWF	EWRPTL, b
 
-	; Firmware status
-	MOVFF	RCON, EDATA
-	SETF	RCON, a
-	MOVFF	STKPTR, EDATA
-	MOVFF	ESTAT, EDATA
-	MOVFF	use_me, EDATA
 
-	; Ethernet buffer pointers
-	LFSR	0, ERXRDPTL
-	MOVLW	4
-	_RCALL	eth_write
-
-	; Packets stats
-	LFSR	0, last_seq
-	MOVLW	4*4
-	_RCALL	eth_write
-
-	MOVFF	Rx_proto, last_seq
-	MOVFF	Rx_proto+1, last_seq+1
-	MOVFF	Rx_proto+2, last_seq+2
-	MOVFF	Rx_proto+3, last_seq+3
-
-	; Write current seq
-	LFSR	0, Rx_proto
-	MOVLW	4
-	_RCALL	eth_write
 
 
 
@@ -405,14 +394,14 @@ udp_send:
 	; Calculate datagram length with header
 	; Store it also in checksum field. It will act as UDP Length field
 	; of the pseudo header
-	MOVLW	LOW(Tx_boot_udp)
+	MOVLW	LOW(Tx_udp)
 	SUBWF	EWRPTL, b, W
 	MOVWF	Rx_udp + _udp_len + 1, a
 	MOVWF	Rx_udp + _udp_cksum + 1, a
 	MOVWF	Rx_ip + _ip_len + 1, a
 	MOVWF	check_lenL, a
 
-	MOVLW	HIGH(Tx_boot_udp)
+	MOVLW	HIGH(Tx_udp)
 	SUBWFB	EWRPTH, b, W
 	MOVWF	Rx_udp + _udp_len, a
 	MOVWF	Rx_udp + _udp_cksum, a
@@ -479,7 +468,7 @@ ip_send:
 	MOVLW	IP_ALEN
 	RCALL	memcpy
 
-	; Source and destination address
+	; Source address
 	LFSR	0,	ip_addr
 	LFSR	1,	Rx_ip + _ip_src
 	MOVLW	IP_ALEN
@@ -508,9 +497,9 @@ ip_send:
 	MOVFF	EWRPTL, ptrL
 
 	; Move eth write pointer to EtherType of ETH header
-	MOVLW	HIGH(Tx_boot_mac + _mac_type)
+	MOVLW	HIGH(Tx_mac + _mac_type)
 	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_boot_mac + _mac_type)
+	MOVLW	LOW(Tx_mac + _mac_type)
 	MOVWF	EWRPTL, b
 
 	; Write EtherType, IP and UDP header to the ethernet buffer
