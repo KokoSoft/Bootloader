@@ -181,7 +181,7 @@ _read_size			EQU 0x06
 ; Write
 _write_address		EQU	0x00	; be32_t	address;
 _write_data			EQU	0x04	; be8_t		data[64];
-_write_size			EQU	0x05
+_write_size			EQU	0x44
 
 ; Erase
 _erase_address		EQU	0x00	; be32_t	address;
