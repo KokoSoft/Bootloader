@@ -4,6 +4,7 @@
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 #include "net.inc"
+#include "config.inc"
 
 ; FSR0 - Source Pointer parameter
 ; FSR1 - Destination Pointer parameter
@@ -43,7 +44,13 @@ Rx_mac:			DS _mac_size	; MAC Header
 Rx_arp:							; ARP Packet = IP Header
 Rx_ip:			DS _ip_size		; IP Header
 Rx_udp:			DS _udp_size	; UDP Header
-Rx_proto:
+Rx_boot_header:	DS _hdr_size	; Bootloader protocol header
+Rx_boot:
+
+; _rx_size + _mac_size + _ip_size + _udp_size + _hdr_size
+; 0x006 + 0x00E + 0x014 + 0x008 + 0x04 = 0x34 (52)
+
+
 
 IF 5 > 0x60
 	ERROR "Too much variables! Move Rx buffer to bank E."
@@ -51,13 +58,22 @@ ENDIF
 
 
 
-
-; Network configuration
 ; TODO: Move it to a right place
-; Keep it with this order (ARP packet aligned)
-arp_filter		EQU	0xF00
-mac_addr		EQU arp_filter + ARP_FILTER_LENGTH
-ip_addr			EQU mac_addr + ETH_ALEN
+;-------------------------------------------------------------------------------
+; Network configuration
+; Keep it with this order! meminit fills this memory.
+;-------------------------------------------------------------------------------
+PSECT config_vars,abs, ovrld, space=1,class=RAM
+ORG 0xF00
+arp_filter:			DS ARP_FILTER_LENGTH
+
+#if VERSION_IN_INITRAM
+discovery_reply:	DS VERSION_IN_INITRAM_SIZE
+#endif
+
+; MAC address must be placed right before IP address (ARP packet aligned)
+mac_addr:			DS ETH_ALEN
+ip_addr:			DS IP_ALEN
 
 
 ;-------------------------------------------------------------------------------
