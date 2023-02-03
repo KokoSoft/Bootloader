@@ -31,13 +31,10 @@ mem_init_data:
 	; Enable PPL - Set 41.667 Mhz CPU Clock
 	REG_WRITE(OSCTUNE, OSCTUNE_PLLEN_MASK)
 
+#if ETH_LEDS
 	;PORTA pins, RA0 and RA1.
-	REG_WRITE(LATB, 0x00)
 	REG_WRITE(TRISA, 11111100B)	; Configure RA0 and RA1 as outputs - ETH LEDs
-	REG_WRITE(TRISB, 11110000B)	; RB0 - RB3 Ledy
-
-	; Transmit Start Pointer High Byte
-	REG_WRITE(ETXSTH, HIGH(Tx_start))
+#endif
     
 	; Receive filters configuration
 	REG_WRITE(ERXFCON, RX_FILTER)
@@ -48,6 +45,11 @@ mem_init_data:
 
 	; MAC CONTROL REGISTER 3
 	REG_WRITE(MACON3, MAC_CONTROL3)
+
+#if !ETH_FULL_DUPLEX
+	; MAC CONTROL REGISTER 4
+	REG_WRITE(MACON4, MAC_CONTROL4)
+#endif
 
 	; Maximum frame length to be permitted to be received or transmitted.
 	REG_WRITE(MAMXFLH, HIGH(RX_LENGTH_MAX))
@@ -67,9 +69,16 @@ mem_init_data:
 	; PHY CONTROL REGISTER 2
 	MII_WRITE(PHCON2, PHY_CONTROL2)
 
+#if ETH_LEDS
 	; PHY MODULE LED CONTROL REGISTER
 	MII_WRITE(PHLCON, PHY_LED)
+#endif
 
+	REG_WRITE(ETXSTH, HIGH(Tx_start))
+	REG_WRITE(ETXSTL, LOW(Tx_start))
+
+	; TODO: Remove debug leds
+	REG_WRITE(TRISB, 11110000B)	; RB0 - RB3 Ledy
 	REG_WRITE(LATB, 0x01)
 
 	DB 0 ; End marker
@@ -78,11 +87,7 @@ mem_init_data:
 ;-------------------------------------------------------------------------------
 ; Memory initialization array
 ;-------------------------------------------------------------------------------
-IF CONFIGURE_NETWORK
-	MEM_INIT(arp_filter, ARP_FILTER_LENGTH + ETH_ALEN + IP_ALEN)
-ELSE
-	MEM_INIT(arp_filter, ARP_FILTER_LENGTH)
-ENDIF
+	MEM_INIT(arp_filter, ARP_FILTER_LENGTH + CONFIGURE_NETWORK_SIZE)
 
 	; ARP request packet filter
 	DW	BIGENDIAN(ARPHRD_ETHER)		; be16_t		hardwareAddressType

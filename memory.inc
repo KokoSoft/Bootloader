@@ -4,6 +4,7 @@
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 #include "net.inc"
+#include "config.inc"
 
 ; FSR0 - Source Pointer parameter
 ; FSR1 - Destination Pointer parameter
@@ -23,15 +24,13 @@ tx_page:		DS 1
 checksumH:		DS 1
 checksumL:		DS 1
 
-; TODO: Czy my to do czegoœ u¿ywamy?
-lengthH:		DS 1
-lengthL:		DS 1
+; Used to temporarly store of ethernet ram read/write pointer
 ; Can be outside of access ram
 ptrH:			DS 1
 ptrL:			DS 1
 
 ; Parameters for eth_checksum_byte
-; big endian! Used to checksum calculation! Eee? Chyba jednak nie?
+; Lenght of a data to be checksumed
 check_lenH:		DS 1
 check_lenL:		DS 1
 ; 0x0A
@@ -44,13 +43,6 @@ received_udp:	DS 4
 received_arp:	DS 4
 ; 0x1A
 
-; Partial UDP checksum (zero, protocol, src and dst address)
-; I gave up with it. Using this cost 8 instruction words and 2 bytes of memory
-; to allow saving a 6 instruction words and 3 CPU cycles.
-;udp_cksumL:		DS 1
-;udp_cksumH:		DS 1
-
-; 0x2F
 
 ;ALIGN 0x10 DO NOT USE ALIGN!!!! Assembler bug?!
 ;ORG 0x60 - (_rx_size + _mac_size + _ip_size + _udp_size)		; 0x60 - 0x07 - 0x0E - 0x14 - 0x08 = 2F - 0x15D RX Frame RAM Buffer
@@ -58,10 +50,15 @@ ORG 0x20 - _rx_size
 Rx_buf:			DS _rx_size		; Receive Status Vector
 Rx_mac:			DS _mac_size	; MAC Header
 ; Access RAM ends here
+Rx_arp:
 Rx_ip:			DS _ip_size		; IP Header
 Rx_udp:			DS _udp_size	; UDP Header
 Rx_proto:
-Rx_arp			EQU Rx_ip		; ARP Packet = IP Header
+Rx_boot_header:	DS _hdr_size	; Bootloader protocol header
+Rx_boot:
+
+; _rx_size + _mac_size + _ip_size + _udp_size + _hdr_size
+; 0x006 + 0x00E + 0x014 + 0x008 + 0x04 = 0x34 (52)
 
 IF 5 > 0x60
 	ERROR "Too much variables! Move Rx buffer to bank E."
@@ -69,13 +66,19 @@ ENDIF
 
 
 
-
-; Network configuration
 ; TODO: Move it to a right place
-; Keep it with this order (ARP packet aligned)
-arp_filter		EQU	0xF00
-mac_addr		EQU arp_filter + ARP_FILTER_LENGTH
-ip_addr			EQU mac_addr + ETH_ALEN
+;-------------------------------------------------------------------------------
+; Network configuration
+; Keep it with this order! meminit fills this memory.
+;-------------------------------------------------------------------------------
+PSECT config_vars,abs, ovrld, space=1,class=RAM
+ORG 0xF00
+arp_filter:			DS ARP_FILTER_LENGTH
+
+
+; MAC address must be placed right before IP address (ARP packet aligned)
+mac_addr:			DS ETH_ALEN
+ip_addr:			DS IP_ALEN
 
 
 ;-------------------------------------------------------------------------------
@@ -84,6 +87,8 @@ ip_addr			EQU mac_addr + ETH_ALEN
 	; Default values:
 	; ERXND		1FFF	8191
 	; ERXST		5FA		1530
+	; ETXST		0
+	; ETXEN		0
 PSECT ethernet_buffer,abs,local,noexec,note,size=2000h,space=100,class=ETH
 ;ALIGN 2
 eth_rx_start:
