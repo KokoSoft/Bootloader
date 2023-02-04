@@ -18,7 +18,8 @@ PSECT rx_buffer,abs, ovrld, space=1,class=COMRAM
 ;-------------------------------------------------------------------------------
 ; Access RAM (0x00 - 0x5F)
 temp0:			DS 1
-use_me:			DS 1
+; Expected sequential number
+expected_seq:	DS 1
 
 ; Used to store partial checksum by eth_checksum_ptr, eth_checksum_byte, eth_checksum, ip_checksum
 checksumH:		DS 1

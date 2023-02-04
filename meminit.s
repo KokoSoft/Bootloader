@@ -33,7 +33,6 @@ mem_init_data:
 
 #if ETH_LEDS
 	;PORTA pins, RA0 and RA1.
-	REG_WRITE(LATB, 0x00)
 	REG_WRITE(TRISA, 11111100B)	; Configure RA0 and RA1 as outputs - ETH LEDs
 #endif
     
@@ -77,10 +76,6 @@ mem_init_data:
 
 	REG_WRITE(ETXSTH, HIGH(Tx_start))
 	REG_WRITE(ETXSTL, LOW(Tx_start))
-
-	; TODO: Remove debug leds
-	REG_WRITE(TRISB, 11110000B)	; RB0 - RB3 Ledy
-	REG_WRITE(LATB, 0x01)
 
 	DB 0 ; End marker
 

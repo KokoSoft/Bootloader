@@ -4,6 +4,8 @@
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 
+#include "config.inc"
+
 ;-------------------------------------------------------------------------------
 ; Receive Status Vector
 ;-------------------------------------------------------------------------------
@@ -144,8 +146,9 @@ OP_NET_CONFIG		EQU 1		; Reply: DiscoverReply
 OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
 OP_WRITE			EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
 OP_ERASE			EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-OP_CHECKSUM			EQU 5		; Reply: ChecksumReply
-OP_RESET			EQU 6		; Reply: Header with STATUS_OK
+OP_RESET			EQU 5		; Reply: Header with STATUS_OK
+OP_CHECKSUM			EQU 6		; Reply: ChecksumReply
+OP_MAX				EQU OP_RESET
 
 STATUS_REQUEST		EQU	0		; It is a request to a device
 STATUS_OK			EQU	1			
@@ -164,14 +167,19 @@ _hdr_size			EQU 0x04
 
 ; DiscoverReply
 _disc_rpl_version	EQU 0x00	; be16_t	version;
-_disc_rpl_dev_id	EQU 0x02	; be16_t	device_id;
-_disc_rpl_boot_addr	EQU 0x04	; be32_t	bootloader_address;
+_disc_rpl_boot_addr	EQU 0x02	; be32_t	bootloader_address;
+_disc_rpl_dev_id	EQU 0x06	; be16_t	device_id;
 _disc_rpl_size		EQU 0x08
 
 ; NetworkConfig
-_netcfg_ip			EQU 0x00	; uint32_t	ip_address;
-_netcfg_mac			EQU 0x04	; uint8_t	mac_address[6];
+_netcfg_mac			EQU 0x00	; uint8_t	mac_address[6];
+_netcfg_ip			EQU 0x06	; uint32_t	ip_address;
+#if NET_CONFIG_MAC_EXTENDED
+_netcfg_mac_ext		EQU 0x0A	; uint8_t	mac_address[6];
+_netcfg_size		EQU 0x10
+#else
 _netcfg_size		EQU 0x0A
+#endif
 
 ; Read
 _read_address		EQU 0x00	; be32_t	address;	// Starting address

@@ -8,33 +8,8 @@
 #include "phy.inc"
 #include "memory.inc"
 #include "functions.inc"
-
-;-------------------------------------------------------------------------------
-; Processor configuration words
-;-------------------------------------------------------------------------------
-;config DEBUG = OFF		// Background Debugger Enable (Background debugger is enabled; RB6 and RB7 are dedicated to In-Circuit Debug)
-
-; CONFIG1L
-  CONFIG  WDT = OFF             ; Watchdog Timer Enable bit (WDT disabled (control is placed on SWDTEN bit))
-  CONFIG  STVR = ON             ; Stack Overflow/Underflow Reset Enable bit (Reset on stack overflow/underflow enabled)
-  CONFIG  XINST = OFF           ; Extended Instruction Set Enable bit (Instruction set extension and Indexed Addressing mode disabled (Legacy mode))
-
-; CONFIG1H
-  CONFIG  CP0 = OFF             ; Code Protection bit (Program memory is not code-protected)
-
-; CONFIG2L
-  CONFIG  FOSC = HSPLL          ; Oscillator Selection bits (HS oscillator, PLL enabled and under software control)
-  CONFIG  FOSC2 = ON            ; Default/Reset System Clock Select bit (Clock selected by FOSC1:FOSC0 as system clock is enabled when OSCCON<1:0> = 00)
-  CONFIG  FCMEN = ON            ; Fail-Safe Clock Monitor Enable (Fail-Safe Clock Monitor enabled)
-  CONFIG  IESO = ON             ; Two-Speed Start-up (Internal/External Oscillator Switchover) Control bit (Two-Speed Start-up enabled)
-
-; CONFIG2H
-  CONFIG  WDTPS = 32768         ; Watchdog Timer Postscaler Select bits (1:32768)
-
-; CONFIG3L
-
-; CONFIG3H
-  CONFIG  ETHLED = ON           ; Ethernet LED Enable bit (RA0/RA1 are multiplexed with LEDA/LEDB when Ethernet module is enabled and function as I/O when Ethernet is disabled)
+#include "bootloader.inc"
+#include "cpu_config.inc"
 
 
 PSECT code
@@ -146,12 +121,10 @@ wait_frame:					; Wait loop for receive network frame
 ;-------------------------------------------------------------------------------
 ; Incoming frame parser
 ;	1. Read the Next Packet Pointer, Receive Status Vector and the Ethernet Header to RAM Buffer
-;	2. Check received ok, broadcast and Received Byte Count
+;	2. TODO: Check received ok, broadcast and Received Byte Count
 ;	3. Parse ethertype and jump to ARP or IP/UDP parser
 ;-------------------------------------------------------------------------------
 parse_frame:
-	BTG		LATB, 1, a
-	
 	; Read Receive Status Vector and ETH Header
 	LFSR	2, Rx_buf		; Initialize Rx Buffer Pointer
 	
@@ -225,7 +198,6 @@ process_arp_tx_idle:
 
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
-	BSF		LATB, 2, a
 	BRA		eth_send
 
 	
@@ -302,7 +274,6 @@ process_udp:
 	BNZ		done_frame
 	MOVF	Rx_ip + _ip_len, a, W
 	XORWF	Rx_udp + _udp_len, a, W
-done_frame_bnz:
 	BNZ		done_frame
 
 	; Compute checksum
@@ -341,24 +312,65 @@ done_frame_bnz:
 	; call ip_checksum with checksum in FSR0 will requre 2 words more.
 	COMF	Rx_ip + _ip_len, a, W
 	XORWF	checksumH, a, f		; XOR with checksum to clear checksum variable
-	BNZ		done_frame_bnz
+	BNZ		done_frame_bra
 	COMF	Rx_ip + _ip_len + 1, a, W
 	XORWF	checksumL, a, f
-	BNZ		done_frame_bnz
+	BNZ		done_frame_bra
 
 	; Check destination port
 	MOVLW	HIGH(UDP_PORT)
 	XORWF	Rx_udp + _udp_dst, a, W
-	BNZ		done_frame_bnz
+	BNZ		done_frame_bra
 	MOVLW	LOW(UDP_PORT)
 	XORWF	Rx_udp + _udp_dst + 1, a, W
-	BNZ		done_frame_bnz
+	BNZ		done_frame_bra
 
 
 
 
 bootloader_processor:
+	; Check operation code
+	; Skip version and sequential number check if operation is OP_DISCOVER od OP_NET_CONFIG
+	MOVLW	OP_READ
+	; Skip instruction if operation > OP_NET_CONFIG, unsigned comparison
+	CPFSGT	Rx_boot_header + _hdr_operation, a
+	BRA		bootloader_skip_check
 
+	; Check operation code range
+	MOVLW	OP_MAX
+	; Skip next instruction if operation > OP_MAX, unsigned comparison
+	CPFSGT	Rx_boot_header + _hdr_operation, a
+
+	; Drop broadcast frames - only OP_DISCOVER od OP_NET_CONFIG can use broadcast frame
+	; Skip next instruction if broadcast bit not set
+	BTFSC	Rx_buf + RX_BROADCAST, a
+
+done_frame_bra:
+	; done_frame is too far for conditional jumps. Use this instruction as a trampoline.
+	BRA		done_frame
+
+	; Check protocol version 
+	MOVLW	PROTOCOL_VERSION
+	XORWF	Rx_boot_header + _hdr_version, a, W
+	BNZ		done_frame_bra
+
+	; Check sequential number, must be one greater than the previous
+	MOVF	expected_seq, a, W
+	XORWF	Rx_boot_header + _hdr_seq, a, W
+	BNZ		done_frame_bra
+	; Increment sequential number
+	INCF	expected_seq, a, f
+
+bootloader_skip_check:
+	; Check is it a request to a device (status = STATUS_REQUEST)
+	MOVF	Rx_boot_header + _hdr_status, a, W
+	BNZ		done_frame_bra
+
+; Set flash memory pointer
+	MOVFF	Rx_boot + _read_address, TBLPTRL
+	MOVFF	Rx_boot + _read_address + 1, TBLPTRH
+	MOVFF	Rx_boot + _read_address + 2, TBLPTRU
+	; TODO: Check memory address range
 
 
 	; Wait for transmitter idle
@@ -366,19 +378,57 @@ bootloader_tx_idle:
 	BTFSC	TXRTS
 	BRA		bootloader_tx_idle
 
+	; TODO: Call / branch to handler function
+OP_DISCOVER			EQU 0		; Reply: DiscoverReply
+OP_NET_CONFIG		EQU 1		; Reply: DiscoverReply
+OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
+OP_WRITE			EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+OP_ERASE			EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+OP_RESET			EQU 5		; Reply: Header with STATUS_OK
+OP_CHECKSUM			EQU 6		; Reply: ChecksumReply
+
+STATUS_INPROGRESS	EQU	2		; Read, Write, Erase, Checksum in progress
+STATUS_DONE			EQU	3		; Read, Write, Erase, Checksum done, attached reply structure / Reply with data
+STATUS_INV_OP		EQU	4		; Unknown / unsupported operation
+STATUS_INV_PARAM	EQU	5		; Invalid operation parameters
+STATUS_INV_SRC		EQU	6		; Sender aren't permitted to perform this operation - discover first
+
+	ADDWF	PCL, a
+	; OP_DISCOVER			EQU 0		; Reply: DiscoverReply
+	BRA	bootloader_discover
+	; OP_NET_CONFIG			EQU 1		; Reply: DiscoverReply
+	BRA	bootloader_net_config
+	; OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
+	BRA	bootloader_read
+	; OP_WRITE				EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA	bootloader_write
+	; OP_ERASE				EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA	bootloader_erase
+	; OP_CHECKSUM			EQU 5		; Reply: ChecksumReply
+	; OP_RESET				EQU 6		; Reply: Header with STATUS_OK
+	RESET
 
 
-; Move eth write pointer to ip header
+
+
+reply_success:
+	MOVLW	STATUS_OK
+reply_error:	; Place status in WREG
+	MOVWF	Rx_boot_header + _hdr_status, a
+
+	; Move eth write pointer to protocol header
 	MOVLW	HIGH(Tx_boot)
 	MOVWF	EWRPTH, b
 	MOVLW	LOW(Tx_boot)
 	MOVWF	EWRPTL, b
 
+	; Write header
+	LFSR	0, Rx_boot_header
+	MOVLW	_hdr_size
+	RCALL	eth_write
 
 
-
-
-
+GLOBAL udp_send
 
 udp_send:
 	; Move source port to the destination port
@@ -512,10 +562,6 @@ ip_send:
 	MOVFF	ptrH, EWRPTH
 	MOVFF	ptrL, EWRPTL
 	
-	BSF		LATB, 3, a
-;gdb:
-;	BRA gdb
-	;BCF		LATB, 3, a
 	; Send data!
 	BRA		eth_send
 	
