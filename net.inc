@@ -157,13 +157,16 @@ STATUS_DONE			EQU	3		; Read, Write, Erase, Checksum done, attached reply structu
 STATUS_INV_OP		EQU	4		; Unknown / unsupported operation
 STATUS_INV_PARAM	EQU	5		; Invalid operation parameters
 STATUS_INV_SRC		EQU	6		; Sender aren't permitted to perform this operation - discover first
+STATUS_INV_ADDR		EQU	7		; Forbidden operation address
 
 ; Header
 _hdr_version		EQU 0x00	; be8_t			version;
 _hdr_seq			EQU 0x01	; be8_t			seq;
 _hdr_operation		EQU 0x02	; be8_t			operation;
 _hdr_status			EQU 0x03	; be8_t			status;
-_hdr_size			EQU 0x04
+_hdr_address		EQU 0x04	; be32_t		address;
+_hdr_length			EQU 0x08	; be16_t		length;
+_hdr_size			EQU 0x04 ; 0x0A
 
 ; DiscoverReply
 _disc_rpl_version	EQU 0x00	; be16_t	version;

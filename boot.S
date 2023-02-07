@@ -13,7 +13,7 @@
 
 
 PSECT code
-
+ 
 ;-------------------------------------------------------------------------------
 ; Bootloader services structure
 ;-------------------------------------------------------------------------------
@@ -336,6 +336,39 @@ bootloader_processor:
 	CPFSGT	Rx_boot_header + _hdr_operation, a
 	BRA		bootloader_skip_check
 
+	; Check protocol version
+	MOVLW	PROTOCOL_VERSION
+	XORWF	Rx_boot_header + _hdr_version, a, W
+	; Unsupported protocol version - can't return error code
+	BNZ		done_frame_bra
+
+	; Check if the sender is permitted
+	LFSR	0, Rx_ip + _ip_src
+	LFSR	1, programmer_ip_addr
+	MOVLW	IP_ALEN
+	MOVWF	temp0, a
+
+check_sender_continue:
+	; Compare byte
+	MOVF	POSTINC0, a, W
+	XORWF	POSTINC1, a, W
+	BNZ		reply_invalid_sender
+	; Can save one instruction
+	;MOVLW	STATUS_INV_SRC
+	;BNZ	reply_error
+
+	; Loop control
+	DECF	temp0, f, a
+	BNZ		check_sender_continue
+
+	; Check sequential number, must be one greater than the previous
+	MOVF	expected_seq, a, W
+	XORWF	Rx_boot_header + _hdr_seq, a, W
+	; Duplicated / out of order frame - just drop
+	BNZ		done_frame_bra
+	; Increment sequential number
+	INCF	expected_seq, a, f
+
 	; Check operation code range
 	MOVLW	OP_MAX
 	; Skip next instruction if operation > OP_MAX, unsigned comparison
@@ -344,22 +377,7 @@ bootloader_processor:
 	; Drop broadcast frames - only OP_DISCOVER od OP_NET_CONFIG can use broadcast frame
 	; Skip next instruction if broadcast bit not set
 	BTFSC	Rx_buf + RX_BROADCAST, a
-
-done_frame_bra:
-	; done_frame is too far for conditional jumps. Use this instruction as a trampoline.
-	BRA		done_frame
-
-	; Check protocol version 
-	MOVLW	PROTOCOL_VERSION
-	XORWF	Rx_boot_header + _hdr_version, a, W
-	BNZ		done_frame_bra
-
-	; Check sequential number, must be one greater than the previous
-	MOVF	expected_seq, a, W
-	XORWF	Rx_boot_header + _hdr_seq, a, W
-	BNZ		done_frame_bra
-	; Increment sequential number
-	INCF	expected_seq, a, f
+	BRA		reply_invalid_operation
 
 bootloader_skip_check:
 	; Check is it a request to a device (status = STATUS_REQUEST)
@@ -378,22 +396,26 @@ bootloader_tx_idle:
 	BTFSC	TXRTS
 	BRA		bootloader_tx_idle
 
-	; TODO: Call / branch to handler function
-OP_DISCOVER			EQU 0		; Reply: DiscoverReply
-OP_NET_CONFIG		EQU 1		; Reply: DiscoverReply
-OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
-OP_WRITE			EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-OP_ERASE			EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-OP_RESET			EQU 5		; Reply: Header with STATUS_OK
-OP_CHECKSUM			EQU 6		; Reply: ChecksumReply
 
 STATUS_INPROGRESS	EQU	2		; Read, Write, Erase, Checksum in progress
 STATUS_DONE			EQU	3		; Read, Write, Erase, Checksum done, attached reply structure / Reply with data
-STATUS_INV_OP		EQU	4		; Unknown / unsupported operation
 STATUS_INV_PARAM	EQU	5		; Invalid operation parameters
-STATUS_INV_SRC		EQU	6		; Sender aren't permitted to perform this operation - discover first
 
-	ADDWF	PCL, a
+;SMALL_BOOTLOADER
+;1024 = 400 -> 3FF
+;2048 = 800 -> 7FF
+; _FLASH_ERASE_SIZE
+DW NOPIFY(OPCODE_SLEEP, HIGH(switch_end) - HIGH(switch_start))
+
+	
+	
+
+switch_start:
+	RLCF	Rx_boot_header + _hdr_operation, a, W
+	; To prevent the PC from becoming misaligned with word instructions,
+	; the Least Significant bit of PCL is fixed to a value of ‘0’.
+	; TODO: Microchip's simulator have a bug, and use lsb in address!
+	ADDWF	PCL, a, f
 	; OP_DISCOVER			EQU 0		; Reply: DiscoverReply
 	BRA	bootloader_discover
 	; OP_NET_CONFIG			EQU 1		; Reply: DiscoverReply
@@ -407,10 +429,14 @@ STATUS_INV_SRC		EQU	6		; Sender aren't permitted to perform this operation - dis
 	; OP_CHECKSUM			EQU 5		; Reply: ChecksumReply
 	; OP_RESET				EQU 6		; Reply: Header with STATUS_OK
 	RESET
+switch_end:
 
-
-
-
+reply_invalid_operation:
+	MOVLW	STATUS_INV_OP
+	BRA		reply_error
+reply_invalid_sender:
+	MOVLW	STATUS_INV_SRC
+	BRA		reply_error
 reply_success:
 	MOVLW	STATUS_OK
 reply_error:	; Place status in WREG

@@ -75,6 +75,7 @@ discovery_reply:	DS VERSION_IN_INITRAM_SIZE
 ; MAC address must be placed right before IP address (ARP packet aligned)
 mac_addr:			DS ETH_ALEN
 ip_addr:			DS IP_ALEN
+programmer_ip_addr:	DS IP_ALEN
 
 
 ;-------------------------------------------------------------------------------

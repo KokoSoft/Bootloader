@@ -5,6 +5,7 @@
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 #include <xc.inc>
 #include "memory.inc"
+#include "net.inc"
 #include "config.inc"
 #include "functions.inc"
 #include "bootloader.inc"
@@ -51,6 +52,12 @@ bootloader_net_config:
 #endif
 
 bootloader_discover:
+	; Set source IP address as permitted programmer
+	LFSR	0, Rx_ip + _ip_src
+	LFSR	1, programmer_ip_addr
+	MOVLW	IP_ALEN
+	RCALL	memcpy
+
 #if VERSION_IN_INITRAM
 	LFSR	0, discovery_reply
 	MOVLW	VERSION_IN_INITRAM_SIZE
@@ -85,6 +92,13 @@ bootloader_read:
 
 ; Single block writter
 bootloader_write:
+	RCALL check_op_address
+	; TODO: Check size to not allow bootloader code to be overwritten
+	; TODO: Address and size must be aligned to 64 bytes
+	; TODO: Limit size to a reasonable values
+	; TODO: cHECK FRAME SIZE
+	; TODO: Move the check_op_address function to this file
+
 	; Unlike previous PIC MCU devices, members of the PIC18F97J60 family
 	; do not reset the holding registers after a write occurs.
 
@@ -112,6 +126,8 @@ flash_fill:
 #endif
 
 bootloader_erase:
+	RCALL check_op_address
+
 	; Enable Row Erase operation. Set FREE bit in EECON1 register.
 	BSF		FREE
 #if MULTIBLOCK_WRITE
@@ -140,7 +156,55 @@ send_reply:
 
 
 
+;-------------------------------------------------------------------------------
+; Check operation address to protect bootloader code
+; Compare operation address bits 20:10 with Program Counter
+; 13 instructions
+;-------------------------------------------------------------------------------
+GLOBAL check_op_address
+GLOBAL reply_error
 
+; Maximum PC value
+MAX_PC	EQU	2 * 1024 * 1024 - 1
+
+
+
+TODO: Przenieœæ funkcje na pocz¹tek tego pliku
+
+;-------------------------------------------------------------------------------
+; Check operation address to protect bootloader code
+; Compare operation address bits 20:10 with Program Counter
+; 13 instructions
+;-------------------------------------------------------------------------------
+check_op_address:
+	; Check address to protect bootloader code
+	MOVF	PCL, a, W			; Read PCL to store PC in PCLATH and PCLATU
+	MOVF	Rx_boot_header + _hdr_address + 1, a, W
+	ANDLW	UPPER(MAX_PC)
+	;XORWF	PCLATU, a, W
+	;BNZ		no_boot_code
+	CPFSEQ	PCLATU, a
+	RETURN
+
+IF SMALL_BOOTLOADER
+	; Protect one page
+	MOVLW	HIGH(~(_FLASH_ERASE_SIZE - 1))
+ELSE
+	; Protect two pages
+	TODO: Dokumentacja: Bootloader jest PIC (Position independent Code), ale jeœli zajmuje 2 strony to musi byæ wgrany od parzystej strony
+	MOVLW	HIGH(~(2* _FLASH_ERASE_SIZE - 1))
+ENDIF
+	ANDWF	PCLATH, a, f
+	ANDWF	Rx_boot_header + _hdr_address + 2, a, W
+	;XORWF	PCLATH, a, W
+	;BNZ		no_boot_code
+	CPFSEQ	PCLATH, a
+	RETURN
+
+	MOVLW	STATUS_INV_ADDR
+reply_error_pop:
+	POP
+	BRA		reply_error
 
 
 

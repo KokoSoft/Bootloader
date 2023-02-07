@@ -29,6 +29,8 @@ BOOTLOADER_VERSION	EQU	(1 << 8 | 0)
 ; Use full-duplex connections - save 2 bytes (1 instruction)
 #define ETH_FULL_DUPLEX				1
 
+#define SMALL_BOOTLOADER			0
+
 ;-------------------------------------------------------------------------------
 ; Ethernet module configuration
 ;-------------------------------------------------------------------------------
