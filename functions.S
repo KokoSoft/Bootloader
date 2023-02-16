@@ -133,7 +133,7 @@ eth_send:
 	MOVLW	ETH_ALEN
 	RCALL	eth_write
 
-#if 0
+#if 1
 	; DEBUG
 	CLRF	ERDPTL, a
 	MOVFF	EWRPTH, ERDPTH
@@ -144,7 +144,8 @@ eth_send:
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
-	BRA	done_frame
+	RETURN
+	;BRA	done_frame
 	
 
 
@@ -349,38 +350,5 @@ loop_done:
 	MOVLW	0
 	ADDWFC	checksumL, a, f
 	ADDWFC	checksumH, a, f
-	RETURN
-#endif
-
-
-#if 0
-PSECT code
-;-------------------------------------------------------------------------------
-; IP Checksum ethernet buffer
-; Super simple implementation. Operates on words only.
-; Uses EWRPT as end address
-; Warning! Will loop forever if (ERDPT & 1) != (EWRPT & 1)
-; Can save 1 instruction, but will use 3 more cycles per word.
-; 14 instructions
-;-------------------------------------------------------------------------------
-; Premium version, 1 more instruction, 3 cycles per word less.
-eth_checksum_ptr:
-	BCF		CARRY					; Clear carry flag
-
-eth_checksum_ptr_continue:
-	MOVF	EDATA, a, W
-	ADDWFC	checksumH, a, f
-	MOVF	EDATA, a, W
-	ADDWFC	checksumL, a, f
-
-	MOVF	ERDPTL, a, W
-	XORWF	EWRPTL, b, W
-	BNZ		eth_checksum_ptr_continue
-	MOVF	ERDPTH, a, W
-	XORWF	EWRPTH, b, W
-	BNZ		eth_checksum_ptr_continue
-
-	ADDWFC	checksumH, a, f
-	ADDWFC	checksumL, a, f
 	RETURN
 #endif

@@ -118,10 +118,47 @@ GLOBAL eth_checksum_byte
 ; Premium version, 1 more instruction, 3 cycles per word less.
 GLOBAL eth_checksum
 
+
+#define UPPER(x) (((x) >> 16) & 0xff)
+
+;-------------------------------------------------------------------------------
+; Ethernet transmit buffer helper macros
+;-------------------------------------------------------------------------------
+; Switch to next transmit buffer
+tx_switch_buffer MACRO
+	NOP
+ENDM
+
+; Mark end of packet
+tx_set_end MACRO end_address
+IF nul end_address
+; argument was not supplied. Use current write pointer value
+	NOP
+ELSE ;argument was supplied
+	NOP
+ENDIF
+	NOP
+ENDM
+
+; Set ethernet write pointer (low address only)
+eth_write_pos MACRO
+	NOP
+ENDM
+
+; Wait for transmitter idle
+tx_wait MACRO
+	NOP
+ENDM
+
+
+
+
 ;-------------------------------------------------------------------------------
 ; Workaround for Microchip buggy assembler! This piece of shit produce invalid jumps between files
 ; and does not check relative jump range!
 ;-------------------------------------------------------------------------------
+#define OPCODE_NOP					0000000000000000B
+#define OPCODE_NOP2					1111000000000000B
 #define OPCODE_BC					1110001000000000B
 #define OPCODE_BN					1110011000000000B
 #define OPCODE_BNC					1110001100000000B
@@ -148,6 +185,9 @@ GLOBAL eth_checksum
 
 ; Produce forever loop on error
 #define LOOPIFY(error)				(0000000000000011B * (error))
+
+; produce NOP if not error
+#define NOPIFY(opcode, error)		(opcode | (OPCODE_NOP2 * (error)))
 
 ; Generate opcode with error checking
 #define OPCODE(code, addr, len)		NULLIFY(code | REL_DIFF(addr, len), ADDR_ERROR(addr, len)) | SLEEPIFY(ADDR_ERROR(addr, len))

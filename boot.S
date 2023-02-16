@@ -177,9 +177,8 @@ process_arp:
 	MOVWF	EWRPTL, b
 
 	; Wait for transmitter idle
-process_arp_tx_idle:
 	BTFSC	TXRTS
-	BRA		process_arp_tx_idle
+	BRA		$-2
 
 	; Write etherType and part of the ARP reply
 	LFSR	0, Rx_mac + _mac_type
@@ -198,15 +197,18 @@ process_arp_tx_idle:
 
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
-	BRA		eth_send
+	RCALL	eth_send
+	BRA		done_frame
 
 	
+;-------------------------------------------------------------------------------
+; IP datagram processor
+;-------------------------------------------------------------------------------
 	; Every internet module must be able to forward a datagram of 68
 	; octets without further fragmentation. This is because an internet
 	; header may be up to 60 octets, and the minimum fragment is 8 octets.
 	; Every internet destination must be able to receive a datagram of 576
 	; octets either in one piece or in fragments to be reassembled.
-
 process_ip:	; IP Datagram
 	; Clear checksum
 	CLRF	checksumL, a
@@ -325,10 +327,62 @@ process_udp:
 	XORWF	Rx_udp + _udp_dst + 1, a, W
 	BNZ		done_frame_bra
 
+;-------------------------------------------------------------------------------
+; Prepare reply datagram
+;-------------------------------------------------------------------------------
+	; UDP Received OK! Prepare reply UDP and IP
+	; Move source port to the destination port
+	MOVFF	Rx_udp + _udp_src, Rx_udp + _udp_dst
+	MOVFF	Rx_udp + _udp_src + 1, Rx_udp + _udp_dst + 1
+
+	; Set source port
+	MOVLW	HIGH(UDP_PORT)
+	MOVWF	Rx_udp + _udp_src, a
+	MOVLW	LOW(UDP_PORT)
+	MOVWF	Rx_udp + _udp_src + 1, a
+
+	; IP Destination address
+	LFSR	0,	Rx_ip + _ip_src
+	LFSR	1,	Rx_ip + _ip_dst
+	MOVLW	IP_ALEN
+	RCALL	memcpy
+
+	; IP Source address
+	LFSR	0,	ip_addr
+	LFSR	1,	Rx_ip + _ip_src
+	MOVLW	IP_ALEN
+	RCALL	memcpy
 
 
-
+;-------------------------------------------------------------------------------
+; Bootloader packet processor
+;-------------------------------------------------------------------------------
 bootloader_processor:
+; TODO: Przenieœ to ju¿ do bootloader.S
+	; Subtract header length and check frame length
+	MOVLW	_hdr_size
+	SUBWF	Rx_udp + _udp_len + 1, a, f
+	CLRF	WREG, a
+	SUBWFB	Rx_udp + _udp_len, a, f
+	BNC		done_frame_bra
+
+	; Read bootloader header
+	MOVLW	_hdr_size
+	RCALL	eth_read
+
+
+	; Call operation handler function
+	RCALL	bootloader_processor_check
+	; Send operation result
+	RCALL	reply_code
+	; Jump to packet processor
+done_frame_bra:
+	BRA		done_frame
+done_frame_pop_bra:
+	BRA		done_frame_pop
+
+; TODO: Przenieœ to ju¿ do bootloader.S
+bootloader_processor_check:
 	; Check operation code
 	; Skip version and sequential number check if operation is OP_DISCOVER od OP_NET_CONFIG
 	MOVLW	OP_READ
@@ -340,7 +394,7 @@ bootloader_processor:
 	MOVLW	PROTOCOL_VERSION
 	XORWF	Rx_boot_header + _hdr_version, a, W
 	; Unsupported protocol version - can't return error code
-	BNZ		done_frame_bra
+	BNZ		done_frame_pop
 
 	; Check if the sender is permitted
 	LFSR	0, Rx_ip + _ip_src
@@ -362,10 +416,11 @@ check_sender_continue:
 	BNZ		check_sender_continue
 
 	; Check sequential number, must be one greater than the previous
+	; TODO: Or just diffrent?
 	MOVF	expected_seq, a, W
 	XORWF	Rx_boot_header + _hdr_seq, a, W
 	; Duplicated / out of order frame - just drop
-	BNZ		done_frame_bra
+	BNZ		done_frame_pop
 	; Increment sequential number
 	INCF	expected_seq, a, f
 
@@ -382,33 +437,34 @@ check_sender_continue:
 bootloader_skip_check:
 	; Check is it a request to a device (status = STATUS_REQUEST)
 	MOVF	Rx_boot_header + _hdr_status, a, W
-	BNZ		done_frame_bra
+	BNZ		done_frame_pop
 
-; Set flash memory pointer
-	MOVFF	Rx_boot + _read_address, TBLPTRL
-	MOVFF	Rx_boot + _read_address + 1, TBLPTRH
-	MOVFF	Rx_boot + _read_address + 2, TBLPTRU
-	; TODO: Check memory address range
+	; Set flash memory pointer and check its range
+	MOVF	Rx_boot_header + _hdr_address + 0, a, f
+	BNZ		reply_invalid_param
 
+	MOVF	Rx_boot_header + _hdr_address + 1, a, W
+	MOVWF	TBLPTRU, a
+	XORWF	TBLPTRU, a, W
+	BNZ		reply_invalid_param
+
+	MOVFF	Rx_boot + _hdr_address + 2, TBLPTRH
+	MOVFF	Rx_boot + _hdr_address + 3, TBLPTRL
 
 	; Wait for transmitter idle
-bootloader_tx_idle:
 	BTFSC	TXRTS
-	BRA		bootloader_tx_idle
+	; TODO: Check it
+	BRA		$ - 2
+
+	; Call operation handler function
+	;RCALL	switch_start
+	; Send operation result
+	;RCALL	reply_code
+	; Jump to packet processor
+	;BRA		done_frame
 
 
-STATUS_INPROGRESS	EQU	2		; Read, Write, Erase, Checksum in progress
-STATUS_DONE			EQU	3		; Read, Write, Erase, Checksum done, attached reply structure / Reply with data
-STATUS_INV_PARAM	EQU	5		; Invalid operation parameters
-
-;SMALL_BOOTLOADER
-;1024 = 400 -> 3FF
-;2048 = 800 -> 7FF
-; _FLASH_ERASE_SIZE
 DW NOPIFY(OPCODE_SLEEP, HIGH(switch_end) - HIGH(switch_start))
-
-	
-	
 
 switch_start:
 	RLCF	Rx_boot_header + _hdr_operation, a, W
@@ -416,30 +472,47 @@ switch_start:
 	; the Least Significant bit of PCL is fixed to a value of ‘0’.
 	; TODO: Microchip's simulator have a bug, and use lsb in address!
 	ADDWF	PCL, a, f
+
 	; OP_DISCOVER			EQU 0		; Reply: DiscoverReply
-	BRA	bootloader_discover
+	BRA		bootloader_discover
 	; OP_NET_CONFIG			EQU 1		; Reply: DiscoverReply
-	BRA	bootloader_net_config
+	BRA		bootloader_net_config
 	; OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
-	BRA	bootloader_read
+	BRA		bootloader_read
 	; OP_WRITE				EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-	BRA	bootloader_write
+	BRA		bootloader_write
 	; OP_ERASE				EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-	BRA	bootloader_erase
-	; OP_CHECKSUM			EQU 5		; Reply: ChecksumReply
-	; OP_RESET				EQU 6		; Reply: Header with STATUS_OK
+	BRA		bootloader_erase
+	; OP_RESET				EQU 5		; Reply: Header with STATUS_OK
+	; TODO: Send reply to reset? Check some magic values?
 	RESET
+	; OP_ERASE_WRITE		EQU 6		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA		bootloader_erase_write
+	; OP_CHIP_ERASE			EQU 7		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA		bootloader_chip_erase
 switch_end:
 
+; Special reply type, must call here
+reply_inprogress:
+	MOVLW	STATUS_INPROGRESS
+	BRA		reply_code
+
+
+; Return with status in WREG
+reply_wrong_packet_size:
+	RETLW	STATUS_PKT_SIZE
+reply_illegal_address:
+	RETLW	STATUS_INV_ADDR
+reply_invalid_param:
+	RETLW	STATUS_INV_PARAM
 reply_invalid_operation:
-	MOVLW	STATUS_INV_OP
-	BRA		reply_error
+	RETLW	STATUS_INV_OP
 reply_invalid_sender:
-	MOVLW	STATUS_INV_SRC
-	BRA		reply_error
+	RETLW	STATUS_INV_SRC
 reply_success:
-	MOVLW	STATUS_OK
-reply_error:	; Place status in WREG
+	RETLW	STATUS_OK
+
+reply_code:	; Place status in WREG
 	MOVWF	Rx_boot_header + _hdr_status, a
 
 	; Move eth write pointer to protocol header
@@ -453,20 +526,7 @@ reply_error:	; Place status in WREG
 	MOVLW	_hdr_size
 	RCALL	eth_write
 
-
-GLOBAL udp_send
-
 udp_send:
-	; Move source port to the destination port
-	MOVFF	Rx_udp + _udp_src, Rx_udp + _udp_dst
-	MOVFF	Rx_udp + _udp_src + 1, Rx_udp + _udp_dst + 1
-
-	; Set source port
-	MOVLW	HIGH(UDP_PORT)
-	MOVWF	Rx_udp + _udp_src, a
-	MOVLW	LOW(UDP_PORT)
-	MOVWF	Rx_udp + _udp_src + 1, a
-
 	; Calculate datagram length with header
 	; Store it also in checksum field. It will act as UDP Length field
 	; of the pseudo header
@@ -537,18 +597,6 @@ ip_send:
 	; Set Time-to-live
 	MOVLW	IP_DEF_TTL
 	MOVWF	Rx_ip + _ip_ttl, a
-
-	; Destination address
-	LFSR	0,	Rx_ip + _ip_src
-	LFSR	1,	Rx_ip + _ip_dst
-	MOVLW	IP_ALEN
-	RCALL	memcpy
-
-	; Source address
-	LFSR	0,	ip_addr
-	LFSR	1,	Rx_ip + _ip_src
-	MOVLW	IP_ALEN
-	RCALL	memcpy
 
 	; Clear IP checksum field
 	CLRF	Rx_ip + _ip_chsum, a

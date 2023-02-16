@@ -141,23 +141,25 @@ ARP_OP_REPLY	EQU 0x0002	; ARP reply
 
 PROTOCOL_VERSION	EQU 1
 
-OP_DISCOVER			EQU 0		; Reply: DiscoverReply
-OP_NET_CONFIG		EQU 1		; Reply: DiscoverReply
-OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
-OP_WRITE			EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-OP_ERASE			EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+OP_DISCOVER			EQU 0		; Reply: DiscoverReply, STATUS_OK
+OP_NET_CONFIG		EQU 1		; Reply: DiscoverReply, STATUS_OK
+OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_OK
+OP_WRITE			EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
+OP_ERASE			EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
 OP_RESET			EQU 5		; Reply: Header with STATUS_OK
-OP_CHECKSUM			EQU 6		; Reply: ChecksumReply
-OP_MAX				EQU OP_RESET
+OP_ERASE_WRITE		EQU 6		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
+OP_CHIP_ERASE		EQU 7		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
+OP_CHECKSUM			EQU 8		; Reply: ChecksumReply, STATUS_OK
+OP_MAX				EQU OP_CHIP_ERASE
 
 STATUS_REQUEST		EQU	0		; It is a request to a device
 STATUS_OK			EQU	1			
 STATUS_INPROGRESS	EQU	2		; Read, Write, Erase, Checksum in progress
-STATUS_DONE			EQU	3		; Read, Write, Erase, Checksum done, attached reply structure / Reply with data
-STATUS_INV_OP		EQU	4		; Unknown / unsupported operation
-STATUS_INV_PARAM	EQU	5		; Invalid operation parameters
-STATUS_INV_SRC		EQU	6		; Sender aren't permitted to perform this operation - discover first
-STATUS_INV_ADDR		EQU	7		; Forbidden operation address
+STATUS_INV_OP		EQU	3		; Unknown / unsupported operation
+STATUS_INV_PARAM	EQU	4		; Invalid operation parameters
+STATUS_INV_SRC		EQU	5		; Sender aren't permitted to perform this operation - discover first
+STATUS_INV_ADDR		EQU	6		; Forbidden operation address
+STATUS_PKT_SIZE		EQU	7		; Invalid packet size
 
 ; Header
 _hdr_version		EQU 0x00	; be8_t			version;
@@ -184,26 +186,7 @@ _netcfg_size		EQU 0x10
 _netcfg_size		EQU 0x0A
 #endif
 
-; Read
-_read_address		EQU 0x00	; be32_t	address;	// Starting address
-_read_length		EQU 0x04	; be16_t	length;		// Length of data to read
-_read_size			EQU 0x06
-
-; Write
-_write_address		EQU	0x00	; be32_t	address;
-_write_data			EQU	0x04	; be8_t		data[64];
-_write_size			EQU	0x44
-
-; Erase
-_erase_address		EQU	0x00	; be32_t	address;
-_erase_size			EQU	0x04
-
-; Checksum
-_cksum_address		EQU 0x00	; be32_t	address;
-_cksum_length		EQU 0x04	; be32_t	length;
-_cksum_size			EQU 0x08
 
 ; ChecksumReply
 _cksum_rpl_sum		EQU 0x00	; be32_t	checksum;
 _cksum_rpl_size		EQU 0x04
-
