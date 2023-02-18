@@ -115,8 +115,7 @@ eth_write:
 ;-------------------------------------------------------------------------------
 eth_send:
 	; Wait for transmitter idle
-	BTFSC	TXRTS
-	BRA		eth_send
+	tx_wait_send
 
 	; Set Tx start and end address based on Write Pointer
 	MOVF	EWRPTH, b, W	; start = write_ptr & 0xff000

@@ -119,3 +119,71 @@ GLOBAL eth_checksum_byte
 ; Premium version, 1 more instruction, 3 cycles per word less.
 GLOBAL eth_checksum
 
+;-------------------------------------------------------------------------------
+; Ethernet transmit buffer helper macros
+;-------------------------------------------------------------------------------
+; Switch to next transmit buffer
+tx_switch_buffer MACRO
+
+ENDM
+
+; Mark end of packet
+tx_set_end MACRO end_address
+IF nul end_address
+; argument was not supplied. Use current write pointer value
+	NOP
+ELSE ;argument was supplied
+	NOP
+ENDIF
+	NOP
+ENDM
+
+eth_get_tx_len_l MACRO
+	MOVLW	LOW(Tx_boot_udp)
+	SUBWF	EWRPTL, b, W
+ENDM
+
+eth_get_tx_len_h MACRO
+	MOVLW	HIGH(Tx_boot_udp)
+	SUBWFB	EWRPTH, b, W
+ENDM
+
+; Set ethernet read pointer to prepared tx data
+eth_read_pos MACRO pos
+	MOVLW	HIGH(pos)
+	MOVWF	ERDPTH, a
+	MOVLW	LOW(pos)
+	MOVWF	ERDPTL, a
+ENDM
+
+
+; Set ethernet write pointer (low address only)
+eth_write_pos MACRO pos
+	MOVLW	HIGH(pos)
+	MOVWF	EWRPTH, b
+	MOVLW	LOW(pos)
+	MOVWF	EWRPTL, b
+ENDM
+
+; Wait for transmitter idle
+tx_wait MACRO
+	
+ENDM
+
+; Wait for transmitter idle in eth_send function
+tx_wait_send MACRO
+	BTFSC	TXRTS
+	BRA		$-2
+ENDM
+
+; Save ethernet write pointer
+eth_save_write_ptr MACRO
+	MOVFF	EWRPTH, ptrH
+	MOVFF	EWRPTL, ptrL
+ENDM
+
+; Restore ethernet write pointer
+eth_restore_write_ptr MACRO
+	MOVFF	ptrH, EWRPTH
+	MOVFF	ptrL, EWRPTL	
+ENDM
