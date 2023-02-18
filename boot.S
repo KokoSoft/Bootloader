@@ -153,10 +153,7 @@ wait_frame:					; Wait loop for receive network frame
 	BSF		PKTDEC			;												b ECON2		E FEh
 
 	; Switch Tx buffer page
-	MOVF	ETXSTH, b, W
-	BTG		WREG, TX_PAGE_BIT, a
-	MOVWF	EWRPTH, b
-	MOVWF	tx_page, a
+	tx_switch_buffer
 
 
 ;-------------------------------------------------------------------------------
@@ -218,6 +215,9 @@ process_arp:
 	; Set ethernet buffer write pointer
 	MOVLW	LOW(Tx_mac + _mac_type)
 	MOVWF	EWRPTL, b
+
+	; Wait for transmitter idle before modifying the buffer content
+	tx_wait
 
 	; Write etherType and part of the ARP reply
 	LFSR	0, Rx_mac + _mac_type
@@ -366,6 +366,9 @@ done_frame_bnz:
 
 
 bootloader_processor:
+	; Wait for transmitter idle before modifying the buffer content
+	tx_wait
+
 	inc_dw received_udp
 
 	; Read current seq

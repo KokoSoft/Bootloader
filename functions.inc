@@ -126,6 +126,39 @@ GLOBAL eth_checksum_byte
 GLOBAL ip_header_checksum						; 44 instructions
 
 ;-------------------------------------------------------------------------------
+; Ethernet transmit buffer helper macros
+;-------------------------------------------------------------------------------
+; Switch to next transmit buffer
+tx_switch_buffer MACRO
+	MOVF	ETXSTH, b, W
+	BTG		WREG, TX_PAGE_BIT, a
+	MOVWF	EWRPTH, b
+	MOVWF	tx_page, a
+ENDM
+
+; Mark end of packet
+tx_set_end MACRO end_address
+IF nul end_address
+; argument was not supplied. Use current write pointer value
+	NOP
+ELSE ;argument was supplied
+	NOP
+ENDIF
+	NOP
+ENDM
+
+; Set ethernet write pointer (low address only)
+eth_write_pos MACRO
+	NOP
+ENDM
+
+; Wait for transmitter idle
+tx_wait MACRO
+	
+ENDM
+
+
+;-------------------------------------------------------------------------------
 ; Workaround for Microchip buggy assembler! This piece of shit produce invalid jumps between files
 ; and does not check relative jump range!
 ;-------------------------------------------------------------------------------
