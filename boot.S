@@ -135,13 +135,16 @@ done_frame:
 	MOVLW	HIGH(eth_rx_end - 1)
 	MOVWF	ERXRDPTH, b
 
-
 wait_frame:					; Wait loop for receive network frame
 	BTFSS	PKTIF			; Receive Packet Pending Interrupt Flag bit		a EIR		F 60h
 	BRA		wait_frame
 
 	; Decrement EPKTCNT
 	BSF		PKTDEC			;												b ECON2		E FEh
+
+	; Switch Tx buffer page
+	tx_switch_buffer
+
 
 ;-------------------------------------------------------------------------------
 ; Incoming frame parser
@@ -198,10 +201,10 @@ process_arp:
 	MOVWF	Rx_arp + _arp_op + 1, a
 
 	; Set ethernet buffer write pointer
-	MOVLW	HIGH(Tx_arp_mac + _mac_type)
-	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_arp_mac + _mac_type)
-	MOVWF	EWRPTL, b
+	eth_write_pos	Tx_arp_mac + _mac_type
+
+	; Wait for transmitter idle before modifying the buffer content
+	tx_wait
 
 	; Write etherType and part of the ARP reply
 	LFSR	0, Rx_mac + _mac_type
@@ -350,14 +353,13 @@ done_frame_bnz:
 	BNZ		done_frame_bnz
 
 
-
-
 bootloader_processor:
 	; Move eth write pointer to response start
-	MOVLW	HIGH(Tx_boot)
-	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_boot)
-	MOVWF	EWRPTL, b
+	eth_write_pos	Tx_boot
+
+	; Wait for transmitter idle before modifying the buffer content
+	tx_wait
+
 
 
 
@@ -376,15 +378,13 @@ udp_send:
 	; Calculate datagram length with header
 	; Store it also in checksum field. It will act as UDP Length field
 	; of the pseudo header
-	MOVLW	LOW(Tx_boot_udp)
-	SUBWF	EWRPTL, b, W
+	eth_get_tx_len_l
 	MOVWF	Rx_udp + _udp_len + 1, a
 	MOVWF	Rx_udp + _udp_cksum + 1, a
 	MOVWF	Rx_ip + _ip_len + 1, a
 	MOVWF	check_lenL, a
 
-	MOVLW	HIGH(Tx_boot_udp)
-	SUBWFB	EWRPTH, b, W
+	eth_get_tx_len_h
 	MOVWF	Rx_udp + _udp_len, a
 	MOVWF	Rx_udp + _udp_cksum, a
 	MOVWF	Rx_ip + _ip_len, a
@@ -408,10 +408,7 @@ udp_send:
 	SUBWFB	check_lenH, a, f
 
 	; Set ethernet read pointer
-	MOVLW	HIGH(Tx_boot)
-	MOVWF	ERDPTH, a
-	MOVLW	LOW(Tx_boot)
-	MOVWF	ERDPTL, a
+	eth_read_pos	Tx_boot
 
 	; Checksum UDP payload
 	RCALL	eth_checksum_byte
@@ -475,14 +472,10 @@ ip_send:
 	MOVWF	Rx_ip + _ip_chsum + 1, a
 	
 	; Save the ethernet write pointer - datagram end marker
-	MOVFF	EWRPTH, ptrH
-	MOVFF	EWRPTL, ptrL
+	eth_save_write_ptr
 
 	; Move eth write pointer to EtherType of ETH header
-	MOVLW	HIGH(Tx_boot_mac + _mac_type)
-	MOVWF	EWRPTH, b
-	MOVLW	LOW(Tx_boot_mac + _mac_type)
-	MOVWF	EWRPTL, b
+	eth_write_pos	Tx_boot_mac + _mac_type
 
 	; Write EtherType, IP and UDP header to the ethernet buffer
 	; Source and destination MAC will be written by eth_write
@@ -491,8 +484,7 @@ ip_send:
 	RCALL	eth_write
 
 	; Restore the ethernet write pointer
-	MOVFF	ptrH, EWRPTH
-	MOVFF	ptrL, EWRPTL
+	eth_restore_write_ptr
 	
 	BSF		LATB, 3, a
 ;gdb:
