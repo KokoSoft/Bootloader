@@ -50,6 +50,23 @@ IF 5 > 0x60
 	ERROR "Too much variables! Move Rx buffer to bank E."
 ENDIF
 
+L	EQU	3
+H	EQU	2
+UL	EQU 1
+UH	EQU 0
+#define RX_ACCESS a
+#define RX_be8(proto, field) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
+#define RX_be16(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel) - 2), RX_ACCESS
+#define RX_be32(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel)), RX_ACCESS
+
+#define RX_le8(proto, field) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
+#define RX_le16(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
+#define RX_le32(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
+
+#define VAR_ACCESS a
+#define VAR8(variable) BANKMASK(VAR_ ## variable), VAR_ACCESS
+#define VAR16(variable, byte_sel) BANKMASK((VAR_ ## variable) + 3 - (byte_sel)), VAR_ACCESS
+#define VAR32(variable, byte_sel) BANKMASK((VAR_ ## variable) + 3 - (byte_sel)), VAR_ACCESS
 
 
 ; TODO: Move it to a right place

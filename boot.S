@@ -164,12 +164,12 @@ parse_frame:
 	; Ethernet has a minimum frame size of 64 bytes, comprising an 18-byte header and a payload of 46 bytes.
 	; It also has a maximum frame size of 1518 bytes, in which case the payload is 1500 bytes.
 	; Check ether_type high byte == 0x80
-	MOVF	Rx_mac + _mac_type, a, W
+	MOVF	RX_be16(mac, type, H), W
 	XORLW	HIGH(ETH_TYPE_ARP)	
 	BNZ		done_frame
 
 	; Check ether_type low byte
-	MOVF	Rx_mac + _mac_type + 1, a, W
+	MOVF	RX_be16(mac, type, L), W
 	BZ		process_ip			; IP = 80 00
 	XORLW	LOW(ETH_TYPE_ARP)	; ARP = 80 06
 	BNZ		done_frame
@@ -198,7 +198,7 @@ process_arp:
 
 	; Change opCode to reply
 	MOVLW	LOW(ARP_OP_REPLY)
-	MOVWF	Rx_arp + _arp_op + 1, a
+	MOVWF	RX_be16(arp, op, L)
 
 	; Set ethernet buffer write pointer
 	eth_write_pos	Tx_arp_mac + _mac_type
@@ -258,7 +258,7 @@ process_ip:	; IP Datagram
 	; 4 bytes to check, 1 and mask, 11 instructions 
 	; Check header version and size
 	MOVLW	(IP_VERSION << 4) | (_ip_size / IP_SIZE_UNIT)
-	XORWF	Rx_ip + _ip_ver, a, W
+	XORWF	RX_be8(ip, ver), W
 	BNZ		done_frame
 
 	; Check destination ip address
@@ -272,22 +272,22 @@ process_ip:	; IP Datagram
 ip_dst_checked:
 	; Check flags - allow only don't fragment flag
 	MOVLW	~HIGH(IP_FLAG_DF)
-	ANDWF	Rx_ip + _ip_flags, a, W
+	ANDWF	RX_be16(ip, flags, H), W
 	BNZ		done_frame
 	; Non zero fragment offset is not allowed
-	MOVF	Rx_ip + _ip_flags + 1, a, W
+	MOVF	RX_be16(ip, flags, L), W
 	BNZ		done_frame
 
 	; Check protocol
 	MOVLW	IP_PROTO_UDP
-	XORWF	Rx_ip + _ip_proto, a, W
+	XORWF	RX_be8(ip, proto), W
 	BNZ		done_frame
 
 	; IP payload length calculation
 	MOVLW	_ip_size
-	SUBWF	Rx_ip + _ip_len + 1, a, f
+	SUBWF	RX_be16(ip, len, L), f
 	CLRF	WREG, a
-	SUBWFB	Rx_ip + _ip_len, a, f
+	SUBWFB	RX_be16(ip, len, H), f
 
 process_udp:
 	; Read UDP header
@@ -295,11 +295,11 @@ process_udp:
 	RCALL	eth_read
 
 	; Compare IP length with UDP length
-	MOVF	Rx_ip + _ip_len + 1, a, W
-	XORWF	Rx_udp + _udp_len + 1, a, W
+	MOVF	RX_be16(ip, len, L), W
+	XORWF	RX_be16(udp, len, L), W
 	BNZ		done_frame
-	MOVF	Rx_ip + _ip_len, a, W
-	XORWF	Rx_udp + _udp_len, a, W
+	MOVF	RX_be16(ip, len, H), W
+	XORWF	RX_be16(udp, len, H), W
 done_frame_bnz:
 	BNZ		done_frame
 
@@ -316,9 +316,9 @@ done_frame_bnz:
 
 	; UDP payload length calculation
 	MOVLW	_udp_size
-	SUBWF	Rx_udp + _udp_len + 1, a, f
+	SUBWF	RX_be16(udp, len, L), f
 	CLRF	WREG, a
-	SUBWFB	Rx_udp + _udp_len, a, f
+	SUBWFB	RX_be16(udp, len, H), f
 
 	; Save read pointer
 	MOVFF	ERDPTH, ptrH
@@ -337,19 +337,19 @@ done_frame_bnz:
 	; This length is equal to length in the header (already modified) and
 	; the current IP Length value (IP Header length already subtracted)
 	; call ip_checksum with checksum in FSR0 will requre 2 words more.
-	COMF	Rx_ip + _ip_len, a, W
+	COMF	RX_be16(ip, len, H), W
 	XORWF	checksumH, a, f		; XOR with checksum to clear checksum variable
 	BNZ		done_frame_bnz
-	COMF	Rx_ip + _ip_len + 1, a, W
+	COMF	RX_be16(ip, len, L), W
 	XORWF	checksumL, a, f
 	BNZ		done_frame_bnz
 
 	; Check destination port
 	MOVLW	HIGH(UDP_PORT)
-	XORWF	Rx_udp + _udp_dst, a, W
+	XORWF	RX_be16(udp, dst, H), W
 	BNZ		done_frame_bnz
 	MOVLW	LOW(UDP_PORT)
-	XORWF	Rx_udp + _udp_dst + 1, a, W
+	XORWF	RX_be16(udp, dst, L), W
 	BNZ		done_frame_bnz
 
 
@@ -371,23 +371,23 @@ udp_send:
 
 	; Set source port
 	MOVLW	HIGH(UDP_PORT)
-	MOVWF	Rx_udp + _udp_src, a
+	MOVWF	RX_be16(udp, src, H)
 	MOVLW	LOW(UDP_PORT)
-	MOVWF	Rx_udp + _udp_src + 1, a
+	MOVWF	RX_be16(udp, src, L)
 
 	; Calculate datagram length with header
 	; Store it also in checksum field. It will act as UDP Length field
 	; of the pseudo header
 	eth_get_tx_len_l
-	MOVWF	Rx_udp + _udp_len + 1, a
-	MOVWF	Rx_udp + _udp_cksum + 1, a
-	MOVWF	Rx_ip + _ip_len + 1, a
+	MOVWF	RX_be16(udp, len, L)
+	MOVWF	RX_be16(udp, cksum, L)
+	MOVWF	RX_be16(ip, len, L)
 	MOVWF	check_lenL, a
 
 	eth_get_tx_len_h
-	MOVWF	Rx_udp + _udp_len, a
-	MOVWF	Rx_udp + _udp_cksum, a
-	MOVWF	Rx_ip + _ip_len, a
+	MOVWF	RX_be16(udp, len, H)
+	MOVWF	RX_be16(udp, cksum, H)
+	MOVWF	RX_be16(ip, len, H)
 	MOVWF	check_lenH, a
 
 	; Prepare pseudoheader checksum
@@ -433,13 +433,13 @@ upd_checksum_not_zeroL:
 ip_send:
 	; Calculate IP Total Length
 	MOVLW	_ip_size
-	ADDWF	Rx_ip + _ip_len + 1, a, f
+	ADDWF	RX_be16(ip, len, L), f
 	MOVLW	0
-	ADDWFC	Rx_ip + _ip_len, a, f
+	ADDWFC	RX_be16(ip, len, H), f
 
 	; Set Time-to-live
 	MOVLW	IP_DEF_TTL
-	MOVWF	Rx_ip + _ip_ttl, a
+	MOVWF	RX_be8(ip, ttl)
 
 	; Destination address
 	LFSR	0,	Rx_ip + _ip_src
@@ -454,8 +454,8 @@ ip_send:
 	RCALL	memcpy
 
 	; Clear IP checksum field
-	CLRF	Rx_ip + _ip_chsum, a
-	CLRF	Rx_ip + _ip_chsum + 1, a
+	CLRF	RX_be16(ip, chsum, H)
+	CLRF	RX_be16(ip, chsum, L)
 
 	; Checksum
 	CLRF	checksumH, a
@@ -467,9 +467,9 @@ ip_send:
 
 	; Set IP checksum field
 	COMF	checksumH, a, W
-	MOVWF	Rx_ip + _ip_chsum, a
+	MOVWF	RX_be16(ip, chsum, H)
 	COMF	checksumL, a, W
-	MOVWF	Rx_ip + _ip_chsum + 1, a
+	MOVWF	RX_be16(ip, chsum, L)
 	
 	; Save the ethernet write pointer - datagram end marker
 	eth_save_write_ptr
