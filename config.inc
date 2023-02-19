@@ -10,20 +10,26 @@
 ; Bootloader configuration
 ;-------------------------------------------------------------------------------
 ; Predefine MAC and IP addresses - cost 19 bytes (10 instructions)
-CONFIGURE_NETWORK	EQU 1	; Set to 1 to set default network addresses
-#define IP_ADDRESS			10, 0, 1, 250
+
+#define IP_ADDRESS			10, 11, 12, 13
 #define MAC_ADDRESS			0x2A, 0xCB, 0x4F, 0x4C, 0xB2, 0x31
 UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 BOOTLOADER_VERSION	EQU	(1 << 8 | 0)
 
 ; 854+89
 
+;Set to 1 to set default network addresses
+#define CONFIGURE_NETWORK			1
+
 ; Allow write multiple sectors with single frame - costs 12 instructions
 #define MULTIBLOCK_WRITE			0
+
 ; Use bigger net_config frame (two MAC address formats) - save 8 instructions
 #define NET_CONFIG_MAC_EXTENDED		0
+
 ; Ethernet LEDs control enable - cost 10 bytes (5 instructions)
 #define ETH_LEDS					1
+
 ; Use full-duplex connections - save 2 bytes (1 instruction)
 #define ETH_FULL_DUPLEX				1
 
