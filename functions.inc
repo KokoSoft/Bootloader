@@ -178,12 +178,12 @@ ENDM
 
 ; Save ethernet write pointer
 eth_save_write_ptr MACRO
-	MOVFF	EWRPTH, ptrH
-	MOVFF	EWRPTL, ptrL
+	MOVFF	EWRPTH, VAR16_ADDR(ptr, H)
+	MOVFF	EWRPTL, VAR16_ADDR(ptr, L)
 ENDM
 
 ; Restore ethernet write pointer
 eth_restore_write_ptr MACRO
-	MOVFF	ptrH, EWRPTH
-	MOVFF	ptrL, EWRPTL	
+	MOVFF	VAR16_ADDR(ptr, H), EWRPTH
+	MOVFF	VAR16_ADDR(ptr, L), EWRPTL	
 ENDM
