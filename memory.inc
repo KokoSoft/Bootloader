@@ -17,30 +17,27 @@ PSECT rx_buffer,abs, ovrld, space=1,class=COMRAM
 ; RAM Memory map:
 ;-------------------------------------------------------------------------------
 ; Access RAM (0x00 - 0x5F)
-temp0:			DS 1
-tx_page:		DS 1
+VAR_temp0:			DS 1
+VAR_tx_page:		DS 1
 
 ; Used to store partial checksum by eth_checksum_ptr, eth_checksum_byte, eth_checksum, ip_checksum
-checksumH:		DS 1
-checksumL:		DS 1
+VAR_checksum:		DS 2
 
 ; Used to temporarly store of ethernet ram read/write pointer
 ; Can be outside of access ram
-ptrH:			DS 1
-ptrL:			DS 1
+VAR_ptr:			DS 2
 
 ; Parameters for eth_checksum_byte
 ; Lenght of a data to be checksumed
-check_lenH:		DS 1
-check_lenL:		DS 1
+VAR_check_len:		DS 2
 ; 0x0A
-last_seq:		DS 4
+VAR_last_seq:		DS 4
 ; 0x0E
-boot_counter:	DS 4
+VAR_boot_counter:	DS 4
 ; 0x12
-received_udp:	DS 4
+VAR_received_udp:	DS 4
 ; 0x16
-received_arp:	DS 4
+VAR_received_arp:	DS 4
 ; 0x1A
 
 
@@ -64,24 +61,33 @@ IF 5 > 0x60
 	ERROR "Too much variables! Move Rx buffer to bank E."
 ENDIF
 
-L	EQU	3
-H	EQU	2
-UL	EQU 1
-UH	EQU 0
+L	EQU	3	; Low byte
+H	EQU	2	; High byte
+UL	EQU 1	; Upper low byte
+UH	EQU 0	; Upper high byte
+#define LE_BYTE(addr, byte_sel)			((addr) + 3 - (byte_sel))
+
 #define RX_ACCESS a
-#define RX_be8(proto, field) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
-#define RX_be16(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel) - 2), RX_ACCESS
-#define RX_be32(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel)), RX_ACCESS
+#define RX_be8(proto, field)			BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
+#define RX_be16(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel) - 2), RX_ACCESS
+#define RX_be32(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel)), RX_ACCESS
 
-#define RX_le8(proto, field) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
-#define RX_le16(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
-#define RX_le32(proto, field, byte_sel) BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
+#define RX_le8(proto, field)			BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
+#define RX_le16(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
+#define RX_le32(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
 
+; Variables are stored as little endian
 #define VAR_ACCESS a
-#define VAR8(variable) BANKMASK(VAR_ ## variable), VAR_ACCESS
-#define VAR16(variable, byte_sel) BANKMASK((VAR_ ## variable) + 3 - (byte_sel)), VAR_ACCESS
-#define VAR32(variable, byte_sel) BANKMASK((VAR_ ## variable) + 3 - (byte_sel)), VAR_ACCESS
+#define VAR8(variable)					BANKMASK(VAR8_ADDR(variable)), VAR_ACCESS
+#define VAR16(variable, byte_sel)		BANKMASK(VAR16_ADDR(variable, byte_sel)), VAR_ACCESS
+#define VAR32(variable, byte_sel)		BANKMASK(VAR32_ADDR(variable, byte_sel)), VAR_ACCESS
 
+#define VAR_BIT(variable, bit)			BANKMASK(VAR8_ADDR(variable) + (bit / 8)), (bit mod 8), VAR_ACCESS
+
+#define VAR_ADDR(variable)				(VAR_ ## variable)
+#define VAR8_ADDR(variable)				(VAR_ ## variable)
+#define VAR16_ADDR(variable, byte_sel)	LE_BYTE((VAR_ ## variable), byte_sel)
+#define VAR32_ADDR(variable, byte_sel)	LE_BYTE((VAR_ ## variable), byte_sel)
 
 ; TODO: Move it to a right place
 ;-------------------------------------------------------------------------------

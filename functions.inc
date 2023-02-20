@@ -133,7 +133,7 @@ tx_switch_buffer MACRO
 	MOVF	ETXSTH, b, W
 	BTG		WREG, TX_PAGE_BIT, a
 	MOVWF	EWRPTH, b
-	MOVWF	tx_page, a
+	MOVWF	VAR8(tx_page)
 ENDM
 
 ; Mark end of packet

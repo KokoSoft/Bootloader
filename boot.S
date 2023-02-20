@@ -38,10 +38,10 @@
 
 inc_dw MACRO var
 	MOVLW	0
-	INCF	var, a, f
-	ADDWFC	var + 1, a, f
-	ADDWFC	var + 2, a, f
-	ADDWFC	var + 3, a, f
+	INCF	LE_BYTE(var, L), VAR_ACCESS, f
+	ADDWFC	LE_BYTE(var, H), VAR_ACCESS, f
+	ADDWFC	LE_BYTE(var, UL), VAR_ACCESS, f
+	ADDWFC	LE_BYTE(var, UH), VAR_ACCESS, f
 ENDM
 
 PSECT code
@@ -106,7 +106,7 @@ phy_init:
 	MOVLW	ECON1_RXEN_MASK			; Receive Enable
 	MOVWF	ECON1, a				; ETHERNET CONTROL REGISTER 1
 
-	inc_dw boot_counter
+	inc_dw VAR_ADDR(boot_counter)
 
 	; Jump to received frame processor
 	BRA		done_frame
@@ -204,7 +204,7 @@ process_arp:
 	MOVLW	IP_ALEN
 	RCALL	memcmp
 
-	inc_dw received_arp
+	inc_dw VAR_ADDR(received_arp)
 
 	; Prepare ARP reply
 
@@ -248,8 +248,8 @@ process_arp:
 
 process_ip:	; IP Datagram
 	; Clear checksum
-	CLRF	checksumL, a
-	CLRF	checksumH, a
+	CLRF	VAR16(checksum, L)
+	CLRF	VAR16(checksum, H)
 
 	; Read IP header
 	MOVLW	_ip_size
@@ -260,9 +260,9 @@ process_ip:	; IP Datagram
 	RCALL	ip_header_checksum
 
 	; Check checksum
-	COMF	checksumL, a
+	COMF	VAR16(checksum, L)
 	BNZ		done_frame
-	COMF	checksumH, a
+	COMF	VAR16(checksum, H)
 	BNZ		done_frame
 
 	; TODO: Check length!!!!
@@ -317,9 +317,9 @@ done_frame_bnz:
 
 	; Compute checksum
 	; TODO: Move to function to save 1 instructions
-	;CLRF	checksumH, a	; Zero - already here because IP checksum was correct
+	;CLRF	VAR16(checksum, H)	; Zero - already here because IP checksum was correct
 	MOVLW	IP_PROTO_UDP
-	MOVWF	checksumL, a	; Protocol
+	MOVWF	VAR16(checksum, L)	; Protocol
 
 	; Add IP source and destination address + udp header
 	LFSR	0, Rx_ip + _ip_src
@@ -333,27 +333,27 @@ done_frame_bnz:
 	SUBWFB	RX_be16(udp, len, H), f
 
 	; Save read pointer
-	MOVFF	ERDPTH, ptrH
-	MOVFF	ERDPTL, ptrL
+	MOVFF	ERDPTH, VAR16_ADDR(ptr, H)
+	MOVFF	ERDPTL, VAR16_ADDR(ptr, L)
 
 	; Checksum UDP Payload
-	MOVFF	Rx_udp + _udp_len, check_lenH
-	MOVFF	Rx_udp + _udp_len + 1, check_lenL
+	MOVFF	Rx_udp + _udp_len, VAR16_ADDR(check_len, H)
+	MOVFF	Rx_udp + _udp_len + 1, VAR16_ADDR(check_len, L)
 	RCALL	eth_checksum_byte
 
 	; Restore read pointer
-	MOVFF	ptrH, ERDPTH
-	MOVFF	ptrL, ERDPTL
+	MOVFF	VAR16_ADDR(ptr, H), ERDPTH
+	MOVFF	VAR16_ADDR(ptr, L), ERDPTL
 
 	; Validate checksum - compare with UDP Length from pseudo header.
 	; This length is equal to length in the header (already modified) and
 	; the current IP Length value (IP Header length already subtracted)
 	; call ip_checksum with checksum in FSR0 will requre 2 words more.
 	COMF	RX_be16(ip, len, H), W
-	XORWF	checksumH, a, f		; XOR with checksum to clear checksum variable
+	XORWF	VAR16(checksum, H), f		; XOR with checksum to clear checksum variable
 	BNZ		done_frame_bnz
 	COMF	RX_be16(ip, len, L), W
-	XORWF	checksumL, a, f
+	XORWF	VAR16(checksum, L), f
 	BNZ		done_frame_bnz
 
 	; Check destination port
@@ -369,7 +369,7 @@ bootloader_processor:
 	; Wait for transmitter idle before modifying the buffer content
 	tx_wait
 
-	inc_dw received_udp
+	inc_dw VAR_ADDR(received_udp)
 
 	; Read current seq
 	MOVLW	4
@@ -393,14 +393,14 @@ bootloader_processor:
 	RCALL	eth_write
 
 	; Packets stats
-	LFSR	0, last_seq
+	LFSR	0, VAR_ADDR(last_seq)
 	MOVLW	4*4
 	RCALL	eth_write
 
-	MOVFF	Rx_proto, last_seq
-	MOVFF	Rx_proto+1, last_seq+1
-	MOVFF	Rx_proto+2, last_seq+2
-	MOVFF	Rx_proto+3, last_seq+3
+	MOVFF	Rx_proto+3, VAR32_ADDR(last_seq, UH)
+	MOVFF	Rx_proto+2, VAR32_ADDR(last_seq, UL)
+	MOVFF	Rx_proto+1, VAR32_ADDR(last_seq, H)
+	MOVFF	Rx_proto+0, VAR32_ADDR(last_seq, L)
 
 	; Write current seq
 	LFSR	0, Rx_proto
@@ -410,7 +410,7 @@ bootloader_processor:
 	; Clear counters
 	BTFSS	Rx_proto+3, 7, a
 	BRA		payload
-	LFSR	0, boot_counter
+	LFSR	0, VAR_ADDR(boot_counter)
 	MOVLW	3*4
 clear_stats:
 	CLRF	POSTINC0, a
@@ -438,8 +438,8 @@ payload_sub:
 	DECF	RX_be16(udp, len, H), f
 	BNC		payload_end
 payload_byte:
-	MOVFF	EDATA, temp0
-	XORWF	temp0, a, W
+	MOVFF	EDATA, VAR8_ADDR(temp0)
+	XORWF	VAR8(temp0), W
 	MOVFF	WREG, EDATA
 	BRA		payload_sub
 payload_end:
@@ -474,20 +474,20 @@ udp_send:
 	MOVWF	RX_be16(udp, len, L)
 	MOVWF	RX_be16(udp, cksum, L)
 	MOVWF	RX_be16(ip, len, L)
-	MOVWF	check_lenL, a
+	MOVWF	VAR16(check_len, L)
 
-	MOVF	tx_page, a, W
+	MOVF	VAR8(tx_page), W
 	SUBWFB	EWRPTH, b, W
 	MOVWF	RX_be16(udp, len, H)
 	MOVWF	RX_be16(udp, cksum, H)
 	MOVWF	RX_be16(ip, len, H)
-	MOVWF	check_lenH, a
+	MOVWF	VAR16(check_len, H)
 
 	; Prepare pseudoheader checksum
 	; TODO: Move to function to save 1 instructions
-	;CLRF	checksumH, a	; Zero - already here because IP checksum was correct
+	;CLRF	VAR16(checksum, H)	; Zero - already here because IP checksum was correct
 	MOVLW	IP_PROTO_UDP
-	MOVWF	checksumL, a	; Protocol
+	MOVWF	VAR16(checksum, L)	; Protocol
 
 	; Add ip source and destination address, UDP Header
 	LFSR	0, Rx_ip + _ip_src
@@ -496,12 +496,12 @@ udp_send:
 
 	; Calculate payload length
 	MOVLW	_udp_size
-	SUBWF	check_lenL, a, f
+	SUBWF	VAR16(check_len, L), f
 	MOVLW	0
-	SUBWFB	check_lenH, a, f
+	SUBWFB	VAR16(check_len, H), f
 
 	; Set ethernet read pointer
-	MOVFF	tx_page, ERDPTH
+	MOVFF	VAR8_ADDR(tx_page), ERDPTH
 	MOVLW	LOW(Tx_payload)
 	MOVWF	ERDPTL, a
 
@@ -511,19 +511,19 @@ udp_send:
 	; Finalize udp checksum
 	; If the computed checksum is zero, it is transmitted as all ones
 	; An all zero transmitted checksum value means that the transmitter generated no checksum
-	COMF	checksumH, a, f
+	COMF	VAR16(checksum, H), f
 	BNZ		upd_checksum_not_zeroH
-	COMF	checksumL, a, f
+	COMF	VAR16(checksum, L), f
 	BNZ		upd_checksum_not_zeroL
 
-	SETF	checksumH, a
+	SETF	VAR16(checksum, H)
 upd_checksum_not_zeroH:
-	COMF	checksumL, a, f
+	COMF	VAR16(checksum, L), f
 
 upd_checksum_not_zeroL:
 	; Set UDP checksum field
-	MOVFF	checksumH, Rx_udp + _udp_cksum
-	MOVFF	checksumL, Rx_udp + _udp_cksum + 1
+	MOVFF	VAR16_ADDR(checksum, H), Rx_udp + _udp_cksum
+	MOVFF	VAR16_ADDR(checksum, L), Rx_udp + _udp_cksum + 1
 
 ip_send:
 	; Calculate IP Total Length
@@ -553,25 +553,25 @@ ip_send:
 	CLRF	RX_be16(ip, chsum, L)
 
 	; Checksum
-	CLRF	checksumH, a
-	CLRF	checksumL, a
+	CLRF	VAR16(checksum, H)
+	CLRF	VAR16(checksum, L)
 
 	LFSR	0,	Rx_ip
 	RCALL	ip_header_checksum
 
 	; Set IP checksum field
-	COMF	checksumH, a, W
+	COMF	VAR16(checksum, H), W
 	MOVWF	RX_be16(ip, chsum, H)
-	COMF	checksumL, a, W
+	COMF	VAR16(checksum, L), W
 	MOVWF	RX_be16(ip, chsum, L)
 	
 	; Save the ethernet write pointer - datagram end marker
-	MOVFF	EWRPTL, ptrL
+	MOVFF	EWRPTL, VAR16_ADDR(ptr, L)
 	MOVF	EWRPTH, b, W
-	MOVWF	ptrH, a
+	MOVWF	VAR16(ptr, H)
 
 	; Move eth write pointer to EtherType of ETH header
-	MOVFF	tx_page, EWRPTH
+	MOVFF	VAR_ADDR(tx_page), EWRPTH
 	MOVLW	LOW(Tx_mac + _mac_type)
 	MOVWF	EWRPTL, b
 
@@ -582,8 +582,8 @@ ip_send:
 	RCALL	eth_write
 
 	; Restore the ethernet write pointer
-	MOVFF	ptrH, EWRPTH
-	MOVFF	ptrL, EWRPTL
+	MOVFF	VAR16_ADDR(ptr, H), EWRPTH
+	MOVFF	VAR16_ADDR(ptr, L), EWRPTL
 	
 	BSF		LATB, 3, a
 ;gdb:

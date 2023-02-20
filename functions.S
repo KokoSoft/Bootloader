@@ -119,7 +119,7 @@ eth_send:
 	BRA		eth_send
 
 	; Set Tx start and end address based on Write Pointer
-	MOVFF	tx_page, ETXSTH
+	MOVFF	VAR8_ADDR(tx_page), ETXSTH
 
 	MOVFF	EWRPTH, ETXNDH
 
@@ -129,7 +129,7 @@ eth_send:
 	SUBWFB	ETXNDH, b, f
 
 	; Move write pointer to eth header
-	MOVFF	tx_page, EWRPTH
+	MOVFF	VAR8_ADDR(tx_page), EWRPTH
 	CLRF	EWRPTL, b
 	; Can save one instruction, if we accept incrementation of RDPT
 	MOVFF	EWRPTL, EDATA	; per-packet control byte
@@ -180,41 +180,41 @@ memcpy:
 #if 0
 ; Budget version, 1 instruction less, 3 more cycles per word
 ip_checksum:						; 11 instructions
-	MOVWF	temp0, a
+	MOVWF	VAR8(temp0)
 
 ip_checksum_continue:
 	MOVF	POSTINC0, a, W
-	ADDWF	checksumH, a, f
+	ADDWF	VAR16(checksum, H), f
 	MOVF	POSTINC0, a, W
-	ADDWFC	checksumL, a, f			; Store MSB in Carry!
+	ADDWFC	VAR16(checksum, L), f			; Store MSB in Carry!
 
 	; Store carry in sum
 	MOVLW	0
-	ADDWFC	checksumH, a, f
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, H), f
+	ADDWFC	VAR16(checksum, L), f
 
 	; Loop control
-	DECF	temp0, a, f
+	DECF	VAR8(temp0), f
 	BNZ		ip_checksum_continue
 	RETURN
 #else
 ; Premium version, 1 more instruction, 3 cycles per word less.
 ip_checksum:						; 12 instructions
-	MOVWF	temp0, a
+	MOVWF	VAR8(temp0)
 	BCF		CARRY					; Clear carry flag
 
 ip_checksum_continue:
 	MOVF	POSTINC0, a, W
-	ADDWFC	checksumH, a, f
+	ADDWFC	VAR16(checksum, H), f
 	MOVF	POSTINC0, a, W
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, L), f
 
-	DECFSZ	temp0, a, f				; Decrement Skip if 0 - no carry flag modification
+	DECFSZ	VAR8(temp0), f			; Decrement Skip if 0 - no carry flag modification
 	BRA		ip_checksum_continue
 
 	MOVLW	0
-	ADDWFC	checksumH, a, f
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, H), f
+	ADDWFC	VAR16(checksum, L), f
 	RETURN
 #endif
 
@@ -228,22 +228,22 @@ ip_checksum_continue:
 ip_header_checksum:						; 44 instructions
 	; Process first word
 	MOVF	POSTINC0, a, W
-	ADDWF	checksumH, a, f
+	ADDWF	VAR16(checksum, H), f
 	MOVF	POSTINC0, a, W
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, L), f
 
 	; Process the remaining 9 words
 REPT 9
 	MOVF	POSTINC0, a, W
-	ADDWFC	checksumH, a, f
+	ADDWFC	VAR16(checksum, H), f
 	MOVF	POSTINC0, a, W
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, L), f
 ENDM
 
 	; Store carry in sum
 	MOVLW	0
-	ADDWFC	checksumH, a, f
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, H), f
+	ADDWFC	VAR16(checksum, L), f
 
 	RETURN
 
@@ -263,8 +263,8 @@ ENDM
 eth_checksum_byte:
 	; Divide UDP length by 2 - length in words - stored in W!
 	BCF		CARRY			; Clear carry flag
-	RRCF	check_lenH, a, W
-	RRCF	check_lenL, a, W
+	RRCF	VAR16(check_len, H), W
+	RRCF	VAR16(check_len, L), W
 
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer
@@ -276,21 +276,21 @@ eth_checksum_byte:
 ;-------------------------------------------------------------------------------
 ; Premium version, 1 more instruction, 3 cycles per word less.
 eth_checksum:
-	MOVWF	temp0, a
+	MOVWF	VAR8(temp0)
 	BCF		CARRY					; Clear carry flag
 
 eth_checksum_continue:
 	MOVF	EDATA, a, W
-	ADDWFC	checksumH, a, f
+	ADDWFC	VAR16(checksum, H), f
 	MOVF	EDATA, a, W
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, L), f
 
-	DECFSZ	temp0, a, f				; Decrement Skip if 0 - no carry flag modification
+	DECFSZ	VAR8(temp0), f				; Decrement Skip if 0 - no carry flag modification
 	BRA		eth_checksum_continue
 
 	MOVLW	0
-	ADDWFC	checksumH, a, f
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, H), f
+	ADDWFC	VAR16(checksum, L), f
 	RETURN
 #endif
 
@@ -304,37 +304,37 @@ eth_checksum_continue:
 ;-------------------------------------------------------------------------------
 ; Premium version, 1 more instruction, 3 cycles per word less.
 _ip_checksum:
-	MOVFF	check_lenL, temp0
+	MOVFF	VAR16_ADDR(check_len, L), VAR8_ADDR(temp0)
 	BCF		CARRY					; Clear carry flag
-	RRCF	check_lenH, a, f		; size >>= 1;
-	RRCF	check_lenL, a, f
+	RRCF	VAR16(check_len, H), f		; size >>= 1;
+	RRCF	VAR16(check_len, L), f
 	BCF		CARRY					; Clear carry flag, BCF not touch flags
 	BNZ		loop					; Z flag set by RRCF
 
 loop_check:							; sizeL is 0
-	MOVF	check_lenH, a, f
+	MOVF	VAR16(check_len, H), f
 	BZ		loop_done
-	DECFSZ	check_lenH, a, f		; Decrement Skip if 0 - no carry flag modification
+	DECFSZ	VAR16(check_len, H), f		; Decrement Skip if 0 - no carry flag modification
 	NOP
 
 loop:
 	MOVF	EDATA, a, W
-	ADDWFC	checksumH, a, f
+	ADDWFC	VAR16(checksum, H), f
 	MOVF	EDATA, a, W
-	ADDWFC	checksumL, a, f
+	ADDWFC	VAR16(checksum, L), f
 
-	DCFSNZ	check_lenL, a, f		; Decrement Skip if not 0 - no carry flag modification
+	DCFSNZ	VAR16(check_len, L), f		; Decrement Skip if not 0 - no carry flag modification
 	BRA		loop_check
 	BRA		loop
 
 loop_done:
 	MOVLW	0
-	BTFSC	temp0, 0, a
+	BTFSC	VAR_BIT(temp0, 0)
 	MOVF	EDATA, a, W
-	ADDWFC	checksumH, a, f
+	ADDWFC	VAR16(checksum, H), f
 	MOVLW	0
-	ADDWFC	checksumL, a, f
-	ADDWFC	checksumH, a, f
+	ADDWFC	VAR16(checksum, L), f
+	ADDWFC	VAR16(checksum, H), f
 	RETURN
 #endif
 
@@ -346,63 +346,63 @@ loop_done:
 ; 46 instructions
 ;-------------------------------------------------------------------------------
 eth_checksum_byte:
-    MOVFF   check_lenL, temp0
+    MOVFF   VAR16_ADDR(check_len, L), VAR8_ADDR(temp0)
     BCF     CARRY                   ; Clear carry flag
-    RRCF    check_lenH, a, f        ; size >>= 1;
-    RRCF    check_lenL, a, f
+    RRCF    VAR16(check_len, H), f        ; size >>= 1;
+    RRCF    VAR16(check_len, L), f
     BCF     CARRY                   ; Clear carry flag
-    RRCF    check_lenH, a, f        ; size >>= 1;
-    RRCF    check_lenL, a, f
+    RRCF    VAR16(check_len, H), f        ; size >>= 1;
+    RRCF    VAR16(check_len, L), f
 
     BCF     CARRY                   ; Clear carry flag
-    MOVF    check_lenL, a, f
+    MOVF    VAR16(check_len, L), f
     BNZ     eth_checksum_dword
 
 eth_checksum_check_dword:                         ; sizeL is 0
-    MOVF    check_lenH, a, f
+    MOVF    VAR16(check_len, H), f
     BZ      eth_checksum_check_word
-    DECFSZ  check_lenH, a, f           ; Decrement Skip if 0 - no carry flag modification
+    DECFSZ  VAR16(check_len, H), f           ; Decrement Skip if 0 - no carry flag modification
     NOP
 
 eth_checksum_dword:
 	MOVF	EDATA, a, W
-    ADDWFC  checksumH, a, f
+    ADDWFC  VAR16(checksum, H), f
     MOVF	EDATA, a, W
-    ADDWFC  checksumL, a, f
+    ADDWFC  VAR16(checksum, L), f
 	MOVF	EDATA, a, W
-    ADDWFC  checksumH, a, f
+    ADDWFC  VAR16(checksum, H), f
     MOVF	EDATA, a, W
-    ADDWFC  checksumL, a, f
+    ADDWFC  VAR16(checksum, L), f
 
-    DCFSNZ  check_lenL, a, f           ; Decrement Skip if not 0 - no carry flag modification
+    DCFSNZ  VAR16(check_len, L), f           ; Decrement Skip if not 0 - no carry flag modification
     BRA     eth_checksum_check_dword
     BRA     eth_checksum_dword
 
 eth_checksum_check_word:
     ; Handle single word
-    BTFSS   temp0, 1, a
+    BTFSS   VAR_BIT(temp0, 1)
     BRA     eth_checksum_check_byte
 
 	MOVF	EDATA, a, W
-    ADDWFC  checksumH, a, f
+    ADDWFC  VAR16(checksum, H), f
     MOVF	EDATA, a, W
-    ADDWFC  checksumL, a, f
+    ADDWFC  VAR16(checksum, L), f
 
 eth_checksum_check_byte:
-    BTFSC   temp0, 0, a
+    BTFSC   VAR_BIT(temp0, 0)
     BRA     eth_checksum_single_byte
 	; No byte
     MOVLW   0
-    ADDWFC  checksumH, a, f
-    ADDWFC  checksumL, a, f
+    ADDWFC  VAR16(checksum, H), f
+    ADDWFC  VAR16(checksum, L), f
     RETURN
 
 eth_checksum_single_byte:
     MOVF	EDATA, a, W
-    ADDWFC  checksumH, a, f
+    ADDWFC  VAR16(checksum, H), f
     MOVLW   0
-    ADDWFC  checksumL, a, f
-    ADDWFC  checksumH, a, f
+    ADDWFC  VAR16(checksum, L), f
+    ADDWFC  VAR16(checksum, H), f
     RETURN
 
 
@@ -417,7 +417,7 @@ eth_checksum_single_byte:
 ; Uses temp0!
 ;-------------------------------------------------------------------------------
 memcmp:
-	MOVWF	temp0, a
+	MOVWF	VAR8(temp0)
 
 memcmp_continue:
 	; Compare
@@ -426,6 +426,6 @@ memcmp_continue:
 	BNZ		done_frame_pop
 
 	; Loop control
-	DECF	temp0, f, a
+	DECF	VAR8(temp0), f
 	BNZ		memcmp_continue
 	RETURN
