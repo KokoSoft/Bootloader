@@ -1,0 +1,421 @@
+//------------------------------------------------
+//--- 010 Editor v13.0.1 Binary Template
+//
+//      File: pic-disass.bt
+//   Authors: Adrian Warecki
+//   Version: 1.0
+//   Purpose: Disassembly template for PIC18FxxJxx
+//  Category: 
+// File Mask: *.hex
+//  ID Bytes: 
+//   License: BSD-3-Clause
+//------------------------------------------------
+
+string get_op_name(int idx)
+{
+    if (idx-- == 0) return "ADDWF";
+    if (idx-- == 0) return "ADDWFC";
+    if (idx-- == 0) return "ANDWF";
+    if (idx-- == 0) return "CLRF";
+    if (idx-- == 0) return "COMF";
+    if (idx-- == 0) return "CPFSEQ";
+    if (idx-- == 0) return "CPFSGT";
+    if (idx-- == 0) return "CPFSLT";
+    if (idx-- == 0) return "DECF";
+    if (idx-- == 0) return "DECFSZ";
+    if (idx-- == 0) return "DCFSNZ";
+    if (idx-- == 0) return "INCF";
+    if (idx-- == 0) return "INCFSZ";
+    if (idx-- == 0) return "INFSNZ";
+    if (idx-- == 0) return "IORWF";
+    if (idx-- == 0) return "MOVF";
+    if (idx-- == 0) return "MOVFF";
+    if (idx-- == 0) return "MOVWF";
+    if (idx-- == 0) return "MULWF";
+    if (idx-- == 0) return "NEGF";
+    if (idx-- == 0) return "RLCF";
+    if (idx-- == 0) return "RLNCF";
+    if (idx-- == 0) return "RRCF";
+    if (idx-- == 0) return "RRNCF";
+    if (idx-- == 0) return "SETF";
+    if (idx-- == 0) return "SUBFWB";
+    if (idx-- == 0) return "SUBWF";
+    if (idx-- == 0) return "SUBWFB";
+    if (idx-- == 0) return "SWAPF";
+    if (idx-- == 0) return "TSTFSZ";
+    if (idx-- == 0) return "XORWF";
+    if (idx-- == 0) return "BCF";
+    if (idx-- == 0) return "BSF";
+    if (idx-- == 0) return "BTFSC";
+    if (idx-- == 0) return "BTFSS";
+    if (idx-- == 0) return "BTG";
+    if (idx-- == 0) return "BC";
+    if (idx-- == 0) return "BN";
+    if (idx-- == 0) return "BNC";
+    if (idx-- == 0) return "BNN";
+    if (idx-- == 0) return "BNOV";
+    if (idx-- == 0) return "BNZ";
+    if (idx-- == 0) return "BOV";
+    if (idx-- == 0) return "BRA";
+    if (idx-- == 0) return "BZ";
+    if (idx-- == 0) return "CALL";
+    if (idx-- == 0) return "CLRWDT";
+    if (idx-- == 0) return "DAW";
+    if (idx-- == 0) return "GOTO";
+    if (idx-- == 0) return "NOP";
+    if (idx-- == 0) return "NOP";
+    if (idx-- == 0) return "POP";
+    if (idx-- == 0) return "PUSH";
+    if (idx-- == 0) return "RCALL";
+    if (idx-- == 0) return "RESET";
+    if (idx-- == 0) return "RETFIE";
+    if (idx-- == 0) return "RETLW";
+    if (idx-- == 0) return "RETURN";
+    if (idx-- == 0) return "SLEEP";
+    if (idx-- == 0) return "ADDLW";
+    if (idx-- == 0) return "ANDLW";
+    if (idx-- == 0) return "IORLW";
+    if (idx-- == 0) return "LFSR";
+    if (idx-- == 0) return "MOVLB";
+    if (idx-- == 0) return "MOVLW";
+    if (idx-- == 0) return "MULLW";
+    if (idx-- == 0) return "SUBLW";
+    if (idx-- == 0) return "XORLW";
+    if (idx-- == 0) return "TBLRD*";
+    if (idx-- == 0) return "TBLRD*+";
+    if (idx-- == 0) return "TBLRD*-";
+    if (idx-- == 0) return "TBLRD+*";
+    if (idx-- == 0) return "TBLWT*";
+    if (idx-- == 0) return "TBLWT*+";
+    if (idx-- == 0) return "TBLWT*-";
+    if (idx-- == 0) return "TBLWT+*";
+
+	// Extended instructions
+    if (idx-- == 0) return "ADDULNK";
+	if (idx-- == 0) return "ADDFSR";
+    if (idx-- == 0) return "CALLW";
+    if (idx-- == 0) return "MOVSF";
+    if (idx-- == 0) return "MOVSS";
+    if (idx-- == 0) return "PUSHL";
+    if (idx-- == 0) return "SUBULNK";
+    if (idx-- == 0) return "SUBFSR";
+    if (idx-- == 0) return "TRAP";
+    if (idx-- == 0) return "TRET";
+    if (idx-- == 0) return "EMULEN";
+    if (idx-- == 0) return "EMULDIS";
+    if (idx-- == 0) return "HALT";
+    return "Invalid instruction";
+}
+
+const int OP_CODES_COUNT = 89;
+
+
+/*
+0 - opcode bit = 0
+1 - opcode bit = 1
+2 - opcode bit = 1, mark two word instruction, 12 bit second argument
+3 - opcode bit = 1, mark two word instruction, 7 bit second argument
+
+d - destination select bit
+a - access bank select bit
+e - second argument
+f - first argument / literal
+c - relative address
+9 - absolute address
+b - bit selector / shadow registers
+8 - igore bit
+*/
+const uint64 codes[OP_CODES_COUNT] = {
+    0x001001daffffffff,
+    0x001000daffffffff,
+    0x000101daffffffff,
+    0x0110101affffffff,
+    0x000111daffffffff,
+    0x0110001affffffff,
+    0x0110010affffffff,
+    0x0110000affffffff,
+    0x000001daffffffff,
+    0x001011daffffffff,
+    0x010011daffffffff,
+    0x001010daffffffff,
+    0x001111daffffffff,
+    0x010010daffffffff,
+    0x000100daffffffff,
+    0x010100daffffffff,
+    0x2100ffffffffffff,
+    0x0110111affffffff,
+    0x0000001affffffff,
+    0x0110110affffffff,
+    0x001101daffffffff,
+    0x010001daffffffff,
+    0x001100daffffffff,
+    0x010000daffffffff,
+    0x0110100affffffff,
+    0x010101daffffffff,
+    0x010111daffffffff,
+    0x010110daffffffff,
+    0x001110daffffffff,
+    0x0110011affffffff,
+    0x000110daffffffff,
+    0x1001bbbaffffffff,
+    0x1000bbbaffffffff,
+    0x1011bbbaffffffff,
+    0x1010bbbaffffffff,
+    0x0111bbbaffffffff,
+    0x11100010cccccccc,
+    0x11100110cccccccc,
+    0x11100011cccccccc,
+    0x11100111cccccccc,
+    0x11100101cccccccc,
+    0x11100001cccccccc,
+    0x11100100cccccccc,
+    0x11010ccccccccccc,
+    0x11100000cccccccc,
+    0x1110110b99999999,
+    0x0000000000000100,
+    0x0000000000000111,
+    0x1110111199999999,
+    0x0000000000000000,
+    0x1111888888888888,
+    0x0000000000000110,
+    0x0000000000000101,
+    0x11011ccccccccccc,
+    0x0000000011118888,
+    0x000000000001000b,
+    0x00001100ffffffff,
+    0x000000000001001b,
+    0x0000000000000011,
+    0x00001111ffffffff,
+    0x00001011ffffffff,
+    0x00001001ffffffff,
+    0x1110111088ffeeee,
+    0x000000018888ffff,
+    0x00001110ffffffff,
+    0x00001101ffffffff,
+    0x00001000ffffffff,
+    0x00001010ffffffff,
+    0x0000000000001000,
+    0x0000000000001001,
+    0x0000000000001010,
+    0x0000000000001011,
+    0x0000000000001100,
+    0x0000000000001101,
+    0x0000000000001110,
+    0x0000000000001111,
+
+	// Extended instructions
+    0x1110100011ffffff,
+    0x11101000ffeeeeee,
+    0x0000000000010100,
+    0x211010110fffffff,
+    0x311010111fffffff,
+    0x11101010ffffffff,
+    0x1110100111ffffff,
+    0x11101001ffeeeeee,
+
+	// Undocumented instructions
+	0x0000000011100000,
+	0x0000000011100001,
+	0x0000000000010101,
+	0x0000000000010110,
+	0x0000000000000001
+};
+
+typedef unsigned char uint8;
+
+const int FLAG_D = 1;
+const int FLAG_A = 2;
+const int FLAG_ADDR_REL = 4;
+const int FLAG_ADDR_ABS = 8;
+const int FLAG_2ND = 16;
+const int FLAG_2ND_7 = 32;
+
+typedef struct {
+	string name;
+	uint16 mask;
+	uint16 code;
+
+	uint16 fs;
+	uint16 fs_shift;
+
+	uint16 fd;
+	uint16 fd_shift;
+
+	uint16 b;
+	uint16 b_shift;
+
+	uint16 flags;
+} Opcode;
+
+local Opcode opcodes[OP_CODES_COUNT];
+
+void prepare_opcodes() {
+	local int i, j;
+    local uint8 n;
+	local uint64 val;
+
+	local uint16 mask;
+	local uint16 code;
+	local uint16 fs;
+	local uint16 fs_shift;
+	local uint16 fd;
+	local uint16 fd_shift;
+	local uint16 b;
+	local uint16 b_shift;
+	local uint16 flags;
+
+	for (i = 0; i < OP_CODES_COUNT; i++) {
+		val = codes[i];
+		mask = 0;
+		code = 0;
+		fs = 0;
+		fs_shift = 0;
+		fd = 0;
+		fd_shift = 0;
+		b = 0;
+		b_shift = 0;
+		flags = 0;
+
+		for (j = 0; j < 16; j++) {
+			n = val >> 60;
+			val <<= 4;
+			mask <<= 1;
+			code <<= 1;
+			fs <<= 1;
+			fd <<= 1;
+			b <<= 1;
+			fs_shift++;
+			fd_shift++;
+			b_shift++;
+
+			switch (n) {
+				case 3:
+					flags |= FLAG_2ND_7;
+				case 2:
+					flags |= FLAG_2ND;
+				case 0:	// Op code
+				case 1:
+					mask |= 1;
+					code |= (n > 0);
+					break;
+
+				case 0xd:
+					flags |= FLAG_D;
+					//break;
+				case 0xa:
+					flags |= FLAG_A;
+					break;
+
+				case 0x9:	// address absolute
+					flags |= FLAG_ADDR_ABS;
+				case 0xe:	// f dst
+					fd |= 1;
+					fd_shift = 0;
+					break;
+
+				case 0xc:	// address relative
+					flags |= FLAG_ADDR_REL;
+				case 0xf:	// f src, f, literal, 
+					fs |= 1;
+					fs_shift = 0;
+					break;
+
+				case 0xb:
+					b |= 1;
+					b_shift = 0;
+					break;
+
+				case 8:
+					break;
+			}
+		}
+
+		opcodes[i].name = get_op_name(i);
+		opcodes[i].code = code;
+		opcodes[i].mask = mask;
+		opcodes[i].fs = fs;
+		opcodes[i].fs_shift = fs_shift;
+		opcodes[i].fd = fd;
+		opcodes[i].fd_shift = fd_shift;
+		opcodes[i].b = b;
+		opcodes[i].b_shift = b_shift;
+		opcodes[i].flags = flags;
+	}
+}
+
+prepare_opcodes();
+
+
+typedef struct {
+    uint16 raw;
+
+	local int i, val;
+    local string name, fs, fd, b, d, a;
+    local int bgcolor = cNone;
+    local int fgcolor = cNone;
+
+	for (i = 0; i < OP_CODES_COUNT; i++) {
+		if ((raw & opcodes[i].mask) == opcodes[i].code) {
+			name = opcodes[i].name;
+
+			if (opcodes[i].fs) {
+				val = (raw & opcodes[i].fs) >> opcodes[i].fs_shift;
+
+				if (opcodes[i].flags & FLAG_ADDR_REL) {
+					if (val & ((opcodes[i].fs + 1) >> 1))
+						val |= 0xffff0000 | opcodes[i].mask;
+					fs = Str(" %+d (0x%lX)", val, AddressLocalToFile(FTell()+val*2));
+				} else
+					fs = Str(" 0x%X", val);
+			}
+
+			if (opcodes[i].flags & FLAG_2ND) {
+				uint16 raw2<fgcolor=cGray>;
+				val = raw2 & ((opcodes[i].flags & FLAG_2ND_7) ? 0x7F : 0xFFF);
+				fd = Str(", 0x%X", val);
+			}
+
+			if (opcodes[i].fd) {
+				uint16 raw2<fgcolor=cGray>;
+
+				val = (raw & opcodes[i].fd) >> opcodes[i].fd_shift;
+				if (opcodes[i].flags & FLAG_ADDR_ABS) {
+					val |= (raw2 & 0xfff) << 8;
+
+					fs = Str(" 0x%X", val);
+				} else {
+					// LFSR hack!
+					val = (raw & opcodes[i].fs) >> opcodes[i].fs_shift;
+					fs = Str(" %u", val);
+
+					val = (val << 8) | (raw2 & 0xff);
+					fd = Str(", 0x%X", val);
+				}
+			}
+
+			if (opcodes[i].b)
+				b = Str(", %d", (raw & opcodes[i].b) >> opcodes[i].b_shift);
+
+			if (opcodes[i].flags & FLAG_A)
+				a = (raw & 0x100) ? ", b" : ", a";
+
+			if (opcodes[i].flags & FLAG_D)
+				d = (raw & 0x200) ? ", f" : ", W";
+
+			if (name == "SLEEP") {
+				fgcolor = cRed;
+			}
+
+			break;
+		}
+	}
+
+	if (i == OP_CODES_COUNT) {
+        bgcolor = cRed;
+		name = "Invalid instruction";
+    }
+
+} Instruction<read=(name+fs+fd+b+d+a),bgcolor=bgcolor,fgcolor=fgcolor>;
+
+while (!FEof())
+    Instruction op;//[495] <optimize=false>;
