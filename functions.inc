@@ -173,6 +173,8 @@ ENDM
 #define OPCODE_BZ					1110000000000000B
 #define OPCODE_RCALL				1101100000000000B
 #define OPCODE_SLEEP				0000000000000011B
+#define OPCODE_HALT					0x0001
+#define OPCODE_TRAP					0x00E0
 
 #define REL_DIFF(address, len)		((((address) - $ - 2) >> 1) and ((1 << len)-1))
 #define REL_DIFF_SIMPLE(address)	((address) - $ - 2)
