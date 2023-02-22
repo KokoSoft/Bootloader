@@ -55,15 +55,15 @@ VAR_received_arp:	DS 4
 ;ORG 0x60 - (_rx_size + _mac_size + _ip_size + _udp_size)		; 0x60 - 0x07 - 0x0E - 0x14 - 0x08 = 2F - 0x15D RX Frame RAM Buffer
 ;ORG VARS_BASE + 0x20 - _rx_size
 ORG BUFF_BASE
-Rx_buf:			DS _rx_size		; Receive Status Vector
-Rx_mac:			DS _mac_size	; MAC Header
+BUF_Rx_rx:			DS _rx_size		; Receive Status Vector
+BUF_Rx_mac:			DS _mac_size	; MAC Header
 ; Access RAM ends here
-Rx_arp:
-Rx_ip:			DS _ip_size		; IP Header
-Rx_udp:			DS _udp_size	; UDP Header
-Rx_proto:
-Rx_boot_header:	DS _hdr_size	; Bootloader protocol header
-Rx_boot:
+BUF_Rx_arp:
+BUF_Rx_ip:			DS _ip_size		; IP Header
+BUF_Rx_udp:			DS _udp_size	; UDP Header
+BUF_Rx_proto:
+BUF_Rx_boot_header:	DS _hdr_size	; Bootloader protocol header
+BUF_Rx_boot:
 
 ; _rx_size + _mac_size + _ip_size + _udp_size + _hdr_size
 ; 0x006 + 0x00E + 0x014 + 0x008 + 0x04 = 0x34 (52)
@@ -72,33 +72,48 @@ IF 5 > 0x60
 	ERROR "Too much variables! Move Rx buffer to bank E."
 ENDIF
 
+#define RX_ACCESS BUFF_ACCESS
+#define VAR_ACCESS VARS_ACCESS
+
 L	EQU	3	; Low byte
 H	EQU	2	; High byte
 UL	EQU 1	; Upper low byte
 UH	EQU 0	; Upper high byte
-#define LE_BYTE(addr, byte_sel)			((addr) + 3 - (byte_sel))
+#define LE_BYTE(addr, byte_sel)					((addr) + 3 - (byte_sel))
+#define BE_BYTE16(addr, byte_sel)				((addr) + (byte_sel) - 2)
+#define BE_BYTE32(addr, byte_sel)				((addr) + (byte_sel))
 
-#define RX_ACCESS BUFF_ACCESS
-#define RX_be8(proto, field)			BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
-#define RX_be16(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel) - 2), RX_ACCESS
-#define RX_be32(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel)), RX_ACCESS
+; Receive buffer
+#define RX_PROTO(proto)							(BUF_Rx_ ## proto)
+#define RX_ADDR(proto, field)					((BUF_Rx_ ## proto) + (_ ## proto ## _ ## field))
+#define RX_ADDR_BE8(proto, field)				RX_ADDR(proto, field)
+#define RX_ADDR_BE16(proto, field, byte_sel)	BE_BYTE16(RX_ADDR(proto, field), byte_sel)
+#define RX_ADDR_BE32(proto, field, byte_sel)	BE_BYTE32(RX_ADDR(proto, field), byte_sel)
+#define RX_ADDR_LE8(proto, field)				RX_ADDR(proto, field)
+#define RX_ADDR_LE16(proto, field, byte_sel)	LE_BYTE(RX_ADDR(proto, field), byte_sel)
+#define RX_ADDR_LE32(proto, field, byte_sel)	LE_BYTE(RX_ADDR(proto, field), byte_sel)
 
-#define RX_le8(proto, field)			BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
-#define RX_le16(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
-#define RX_le32(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
+#define RX_BE8(proto, field)					BANKMASK(RX_ADDR_BE8(proto, field)), RX_ACCESS
+#define RX_BE16(proto, field, byte_sel)			BANKMASK(RX_ADDR_BE16(proto, field, byte_sel)), RX_ACCESS
+#define RX_BE32(proto, field, byte_sel)			BANKMASK(RX_ADDR_BE32(proto, field, byte_sel)), RX_ACCESS
+
+#define RX_LE8(proto, field)					BANKMASK(RX_ADDR_LE8(proto, field)), RX_ACCESS
+#define RX_LE16(proto, field, byte_sel)			BANKMASK(RX_ADDR_LE16(proto, field, byte_sel)), RX_ACCESS
+#define RX_LE32(proto, field, byte_sel)			BANKMASK(RX_ADDR_LE32(proto, field, byte_sel)), RX_ACCESS
+
+#define RX_BIT_LE(proto, field, bit)			BANKMASK(RX_ADDR(proto, field) + (bit / 8)), (bit mod 8), RX_ACCESS
 
 ; Variables are stored as little endian
-#define VAR_ACCESS VARS_ACCESS
-#define VAR8(variable)					BANKMASK(VAR8_ADDR(variable)), VAR_ACCESS
-#define VAR16(variable, byte_sel)		BANKMASK(VAR16_ADDR(variable, byte_sel)), VAR_ACCESS
-#define VAR32(variable, byte_sel)		BANKMASK(VAR32_ADDR(variable, byte_sel)), VAR_ACCESS
+#define VAR8(variable)							BANKMASK(VAR8_ADDR(variable)), VAR_ACCESS
+#define VAR16(variable, byte_sel)				BANKMASK(VAR16_ADDR(variable, byte_sel)), VAR_ACCESS
+#define VAR32(variable, byte_sel)				BANKMASK(VAR32_ADDR(variable, byte_sel)), VAR_ACCESS
 
-#define VAR_BIT(variable, bit)			BANKMASK(VAR8_ADDR(variable) + (bit / 8)), (bit mod 8), VAR_ACCESS
+#define VAR_BIT(variable, bit)					BANKMASK(VAR8_ADDR(variable) + (bit / 8)), (bit mod 8), VAR_ACCESS
 
-#define VAR_ADDR(variable)				(VAR_ ## variable)
-#define VAR8_ADDR(variable)				(VAR_ ## variable)
-#define VAR16_ADDR(variable, byte_sel)	LE_BYTE((VAR_ ## variable), byte_sel)
-#define VAR32_ADDR(variable, byte_sel)	LE_BYTE((VAR_ ## variable), byte_sel)
+#define VAR_ADDR(variable)						(VAR_ ## variable)
+#define VAR8_ADDR(variable)						VAR_ADDR(variable)
+#define VAR16_ADDR(variable, byte_sel)			LE_BYTE(VAR_ADDR(variable), byte_sel)
+#define VAR32_ADDR(variable, byte_sel)			LE_BYTE(VAR_ADDR(variable), byte_sel)
 
 ; TODO: Move it to a right place
 ;-------------------------------------------------------------------------------
