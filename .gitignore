@@ -47,3 +47,4 @@ ipch/
 /debug
 /dist
 /nbproject
+*.hex
