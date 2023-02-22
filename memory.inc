@@ -10,13 +10,23 @@
 ; FSR1 - Destination Pointer parameter
 ; FSR2 - RX Frame RAM Buffer write pointer
 
+; We have 128 bytes in bank E
+; We have 96 bytes in bank F
+
+#define VARS_BASE	0xE00
+#define VARS_ACCESS	b
+
+#define BUFF_BASE	0x020
+#define BUFF_ACCESS	a
+
 
 PSECT boot_vars,space=1
-PSECT rx_buffer,abs, ovrld, space=1,class=COMRAM
+PSECT rx_buffer,abs, ovrld, space=1,class=RAM
 ;-------------------------------------------------------------------------------
 ; RAM Memory map:
 ;-------------------------------------------------------------------------------
 ; Access RAM (0x00 - 0x5F)
+ORG VARS_BASE
 VAR_temp0:			DS 1
 VAR_tx_page:		DS 1
 
@@ -29,7 +39,7 @@ VAR_ptr:			DS 2
 
 ; Parameters for eth_checksum_byte
 ; Lenght of a data to be checksumed
-VAR_check_len:			DS 2
+VAR_check_len:		DS 2
 
 
 ;ALIGN 0x10 DO NOT USE ALIGN!!!! Assembler bug?!
@@ -53,7 +63,7 @@ UL	EQU 1	; Upper low byte
 UH	EQU 0	; Upper high byte
 #define LE_BYTE(addr, byte_sel)			((addr) + 3 - (byte_sel))
 
-#define RX_ACCESS a
+#define RX_ACCESS BUFF_ACCESS
 #define RX_be8(proto, field)			BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field)), RX_ACCESS
 #define RX_be16(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel) - 2), RX_ACCESS
 #define RX_be32(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + (byte_sel)), RX_ACCESS
@@ -63,7 +73,7 @@ UH	EQU 0	; Upper high byte
 #define RX_le32(proto, field, byte_sel)	BANKMASK((Rx_ ## proto) + (_ ## proto ## _ ## field) + 3 - (byte_sel)), RX_ACCESS
 
 ; Variables are stored as little endian
-#define VAR_ACCESS a
+#define VAR_ACCESS VARS_ACCESS
 #define VAR8(variable)					BANKMASK(VAR8_ADDR(variable)), VAR_ACCESS
 #define VAR16(variable, byte_sel)		BANKMASK(VAR16_ADDR(variable, byte_sel)), VAR_ACCESS
 #define VAR32(variable, byte_sel)		BANKMASK(VAR32_ADDR(variable, byte_sel)), VAR_ACCESS
@@ -79,6 +89,7 @@ UH	EQU 0	; Upper high byte
 ;-------------------------------------------------------------------------------
 ; Network configuration
 ; Keep it with this order! meminit fills this memory.
+; This stuff is accessed only via FSRs.
 ;-------------------------------------------------------------------------------
 PSECT config_vars,abs, ovrld, space=1,class=RAM
 ORG 0xF00
