@@ -5,22 +5,18 @@
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 
 ;-------------------------------------------------------------------------------
-; Receive Status Vector
+; Receive Status Vector (little endian fields)
 ;-------------------------------------------------------------------------------
-_rx_nextL		EQU	0x000
-_rx_nextH		EQU	0x001
-_rx_lenL		EQU	0x002	; status[7:0]		15-0 Received Byte Count
-_rx_lenH		EQU	0x003	; status[15:8]		15-0 Received Byte Count
-_rx_statusL		EQU	0x004	; status[23:16]		23 Received OK
-_rx_statusH		EQU	0x005	; status[31:24]		25 Receive Broadcast Packet
+_rx_next		EQU	0x000
+_rx_len			EQU	0x002	; status[15:0]		15-0 Received Byte Count
+_rx_status		EQU	0x004	; status[31:16]		23 Received OK, 25 Receive Broadcast Packet
 _rx_size		EQU	0x006
 
-#define RX_BROADCAST	_rx_statusH, 1
+#define RX_BROADCAST	RX_BIT_LE(rx, status, 9)
 ;-------------------------------------------------------------------------------
-; Transmit Status Vector
+; Transmit Status Vector (little endian fields)
 ;-------------------------------------------------------------------------------
-_tx_lenL		EQU	0x000	; status[7:0]		15-0 Transmit Byte Count
-_tx_lenH		EQU	0x001	; status[15:8]		15-0 Transmit Byte Count
+_tx_len		EQU	0x000	; status[15:0]		15-0 Transmit Byte Count
 _tx_status0		EQU	0x002	; status[23:16]
 _tx_status1		EQU	0x003	; status[31:24]
 _tx_status2		EQU	0x004	; status[39:32]

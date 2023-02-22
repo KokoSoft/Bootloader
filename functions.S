@@ -129,7 +129,7 @@ eth_send:
 	MOVFF	EWRPTL, EDATA	; per-packet control byte
 
 	; Set destination MAC to source MAC of received frame
-	LFSR	0, Rx_mac + _mac_src
+	LFSR	0, RX_ADDR(mac, src)
 	MOVLW	ETH_ALEN
 	RCALL	eth_write
 
