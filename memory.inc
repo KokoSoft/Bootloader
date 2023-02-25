@@ -16,8 +16,8 @@
 #define VARS_BASE	0xE00
 #define VARS_ACCESS	b
 
-#define BUFF_BASE	0x020
-#define BUFF_ACCESS	a
+#define BUFF_BASE	0xE20
+#define BUFF_ACCESS	b
 
 
 PSECT boot_vars,space=1
