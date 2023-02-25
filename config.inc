@@ -10,12 +10,13 @@
 ; Bootloader configuration
 ;-------------------------------------------------------------------------------
 ; Predefine MAC and IP addresses - cost 19 bytes (10 instructions)
+;Set to 1 to set default network addresses
+#define CONFIGURE_NETWORK			1
+
 #define IP_ADDRESS			10, 11, 12, 13
 #define MAC_ADDRESS			0x2A, 0xCB, 0x4F, 0x4C, 0xB2, 0x31
 UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 
-;Set to 1 to set default network addresses
-#define CONFIGURE_NETWORK			1
 
 ; 854+89
 
