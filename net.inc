@@ -7,8 +7,13 @@
 ;-------------------------------------------------------------------------------
 ; Receive Status Vector (little endian fields)
 ;-------------------------------------------------------------------------------
+; Next Packet Pointer
 _rx_next		EQU	0x000
 ;_rx_nextH		EQU	0x001
+
+; Indicates length of the received frame. This includes the destination
+; address, source address, type/length, data, padding and CRC fields. This
+; field is stored in little-endian format.
 _rx_len			EQU	0x002	; status[7:0]		15-0 Received Byte Count
 ;_rx_lenH		EQU	0x003	; status[15:8]		15-0 Received Byte Count
 _rx_status		EQU	0x004	; status[23:16]		23 Received OK
@@ -31,14 +36,15 @@ _tx_size		EQU	0x007
 ;-------------------------------------------------------------------------------
 ; MAC Header
 ;-------------------------------------------------------------------------------
-_mac_dst		EQU	0x000	; MAC_Address	destination
-_mac_src		EQU	0x006	; MAC_Address	source
-_mac_type		EQU	0x00C	; EtherType		etherType
-_mac_size		EQU	0x00E
+_mac_dst			EQU	0x000	; MAC_Address	destination
+_mac_src			EQU	0x006	; MAC_Address	source
+_mac_type			EQU	0x00C	; EtherType		etherType
+_mac_size			EQU	0x00E
+_mac_footer_size	EQU	0x004
 
-ETH_ALEN		EQU 6		; Octets in one ethernet address
-ETH_TYPE_ARP	EQU 0x0806	; Address Resolution packet
-ETH_TYPE_IP		EQU 0x0800	; Internet Protocol packet
+ETH_ALEN			EQU 6		; Octets in one ethernet address
+ETH_TYPE_ARP		EQU 0x0806	; Address Resolution packet
+ETH_TYPE_IP			EQU 0x0800	; Internet Protocol packet
 
 ;-------------------------------------------------------------------------------
 ; IP Header
