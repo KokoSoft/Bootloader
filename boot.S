@@ -254,7 +254,19 @@ process_ip:	; IP Datagram
 	COMF	VAR16(checksum, H)
 	BNZ		done_frame
 
-	; TODO: Check length!!!!
+	; Subtract ethernet header and footer size from received length
+	MOVLW	LOW(_mac_size + _mac_footer_size)
+	SUBWF	RX_LE16(rx, len, L), f
+	MOVLW	HIGH(_mac_size + _mac_footer_size)
+	SUBWFB	RX_LE16(rx, len, H), f
+
+	; Subtract IP datagram size
+	MOVF	RX_BE16(ip, len, L), W
+	SUBWF	RX_LE16(rx, len, L), f
+	MOVF	RX_BE16(ip, len, H), W
+	SUBWFB	RX_LE16(rx, len, H), f
+	; Check if the whole IP datagram has been received
+	BNC		done_frame
 
 	; 4 bytes to check, 1 and mask, 11 instructions 
 	; Check header version and size
