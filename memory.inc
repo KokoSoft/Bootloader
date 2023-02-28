@@ -41,7 +41,9 @@ VAR_ptr:			DS 2
 ; Lenght of a data to be checksumed
 VAR_check_len:		DS 2
 ; 0x0A
-VAR_last_seq:		DS 4
+VAR_tx_data:		DS 1
+VAR_tx_data2:		DS 1
+VAR_frame_cnt:		DS 1
 ; 0x0E
 VAR_boot_counter:	DS 4
 ; 0x12

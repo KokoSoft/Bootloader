@@ -78,8 +78,8 @@ mem_init_data:
 	REG_WRITE(ETXSTL, LOW(Tx_start))
 
 	; TODO: Remove debug leds
-	REG_WRITE(TRISB, 11110000B)	; RB0 - RB3 Ledy
-	REG_WRITE(LATB, 0x01)
+	;REG_WRITE(TRISB, 11110000B)	; RB0 - RB3 Ledy
+	;REG_WRITE(LATB, 0x01)
 
 	DB 0 ; End marker
 

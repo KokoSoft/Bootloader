@@ -81,6 +81,30 @@ phy_init:
 
 	inc_dw VAR_ADDR(boot_counter)
 
+
+
+
+
+	; Configure SPI port
+	; We will use RC5 (SDO), RC3 (SCK) and RC4 (SDI as CE)
+	;CKE=1, CKP=0
+	; Set CKE in status register
+	BSF		CKE
+
+	; SPI Master, FOSC/16 (2 MHz), 
+	MOVLW	(1 << SSP1CON1_SSPM_POSN) | (0 << SSP1CON1_CKP_POSN) | SSP1CON1_SSPEN_MASK
+	MOVWF	SSP1CON1, a
+
+	; Clear CE pin
+	BCF		LATC4
+
+	; Set transmitted interrupt flag. Transmit function wait for it before write new byte
+	BSF		SSP1IF
+
+	; Configure pins as output
+	MOVLW	0b11000111
+	MOVWF	TRISC, a
+
 	; Jump to received frame processor
 	BRA		done_frame
 
@@ -351,89 +375,77 @@ done_frame_bnz:
 
 
 bootloader_processor:
-	; Wait for transmitter idle before modifying the buffer content
-	tx_wait
+	; Read frame count
+	MOVFF	EDATA, VAR8_ADDR(frame_cnt)
 
-	inc_dw VAR_ADDR(received_udp)
+send_frame:
+	; Send Address
+	MOVLW	0x41
+	MOVWF	VAR8(tx_data)
+	RCALL	write
 
-	; Read current seq
-	MOVLW	4
-	RCALL	eth_read
+	; Wait for transmit complete (receive complete bit)
+	;BTFSS BF
+	;BRA $-2
+	RCALL spi_wait
 
-	; Move eth write pointer to response start
-	MOVLW	LOW(Tx_payload)
-	MOVWF	EWRPTL, b
+	; Set CE pin
+	BSF		LATC4
 
-	; Firmware status
-	MOVFF	RCON, EDATA
-	SETF	RCON, a
-	MOVFF	STKPTR, EDATA
-	MOVFF	ESTAT, EDATA
-	SETF	ESTAT, a
-	MOVFF	EPKTCNT, EDATA
+	; Send 8 bytes of a data
+	MOVLW	8
+	MOVWF	VAR8(temp0)
 
-	; Ethernet buffer pointers
-	LFSR	0, ERXRDPTL
-	MOVLW	4
-	RCALL	eth_write
+data_loop:
+	MOVFF	EDATA, VAR8_ADDR(tx_data)
+	RCALL	write
+	DECFSZ	VAR8(temp0), f
+	BRA		data_loop
 
-	; Packets stats
-	LFSR	0, VAR_ADDR(last_seq)
-	MOVLW	4*4
-	RCALL	eth_write
+	; Wait for transmit complete (receive complete bit)
+;	BTFSS BF
+;	BRA $-2
+	RCALL spi_wait
 
-	MOVFF	RX_PROTO(proto)+3, VAR32_ADDR(last_seq, UH)
-	MOVFF	RX_PROTO(proto)+2, VAR32_ADDR(last_seq, UL)
-	MOVFF	RX_PROTO(proto)+1, VAR32_ADDR(last_seq, H)
-	MOVFF	RX_PROTO(proto)+0, VAR32_ADDR(last_seq, L)
+	; Clear CE pin
+	BCF		LATC4
 
-	; Write current seq
-	LFSR	0, RX_PROTO(proto)
-	MOVLW	4
-	RCALL	eth_write
-
-	; Clear counters
-	BTFSS	RX_PROTO(proto)+3, 7, a
-	BRA		payload
-	LFSR	0, VAR_ADDR(boot_counter)
-	MOVLW	3*4
-clear_stats:
-	CLRF	POSTINC0, a
-	DECF	WREG, a, f
-	BNZ		clear_stats
-
-payload:
-; Substract seq length
-	MOVLW	4
-	SUBWF	RX_BE16(udp, len, L), f
-	MOVLW	0
-	SUBWFB	RX_BE16(udp, len, H), f
-	BNZ		payload_start
-	MOVF	RX_BE16(udp, len, L), W
-	BZ		payload_end
-
-payload_start:
-
-	; Write xored payload
-	MOVLW	0x5A
-
-payload_sub:
-	DECF	RX_BE16(udp, len, L), f
-	BC		payload_byte
-	DECF	RX_BE16(udp, len, H), f
-	BNC		payload_end
-payload_byte:
-	MOVFF	EDATA, VAR8_ADDR(temp0)
-	XORWF	VAR8(temp0), W
-	MOVFF	WREG, EDATA
-	BRA		payload_sub
-payload_end:
+	DECFSZ	VAR8(frame_cnt), f
+	BRA		send_frame
 
 
+	; No reply ;)
+	BRA		done_frame
 
 
+write:
+	; Change bit order. SSP send from Msb to Lsb, our slave read Lsb first
+	MOVLW	8
+write_swap:
+	RRCF	VAR8(tx_data)
+	RLCF	VAR8(tx_data2)
+	DECFSZ	WREG, a, W	
+	BRA		write_swap
 
+	RCALL	spi_wait
 
+	; Start transmission
+	MOVFF	VAR8_ADDR(tx_data2), SSP1BUF
+
+	; Clear transmitted interrupt flag
+	BCF		SSP1IF
+
+	; Przy predkosci 2 MHz nie potrzeba czekaæ, bo du¿o czasu schodzi nam na przygotowanie danych.
+	; Ale jak byœmy obni¿yli taktowanie, to ju¿ nie jest takie pewne ;)
+	RETURN 0
+
+spi_wait:
+	; Wait for transmit complete
+	BTFSS	SSP1IF
+	BRA		$-2
+	; Clear transmitted interrupt flag
+	;BCF		SSP1IF
+	RETURN	0
 
 
 
