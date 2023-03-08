@@ -167,13 +167,20 @@ ENDM
 
 ; Wait for transmitter idle
 tx_wait MACRO
-	
+#if !TX_DOUBLE_BUFFERING
+	; Wait for transmitter idle
+	BTFSC	TXRTS
+	BRA		$-2
+#endif
 ENDM
 
 ; Wait for transmitter idle in eth_send function
 tx_wait_send MACRO
+#if TX_DOUBLE_BUFFERING
+	; Wait for transmitter idle
 	BTFSC	TXRTS
 	BRA		$-2
+#endif
 ENDM
 
 ; Save ethernet write pointer

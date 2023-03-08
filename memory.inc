@@ -136,6 +136,7 @@ ip_addr:			DS IP_ALEN
 PSECT ethernet_buffer,abs,local,noexec,note,size=2000h,space=100,class=ETH
 ;ALIGN 2
 eth_rx_start:
+; 2000h - (TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE
 ORG 1E00h
 eth_rx_end:
 BUF_Tx_start:
