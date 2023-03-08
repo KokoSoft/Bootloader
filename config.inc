@@ -17,16 +17,21 @@
 #define MAC_ADDRESS			0x2A, 0xCB, 0x4F, 0x4C, 0xB2, 0x31
 UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 
+; Size of single transmit buffer, must be a multiple of 256 bytes
+#define TX_BUFFER_SIZE				256
 
-; 854+89
+; Transmit buffer mode
+#define TX_DOUBLE_BUFFERING			0
 
-/* Use dedicated function to checksum ip header */
+; Use dedicated function to checksum ip header
 #define IP_HEADER_FAST_CHECKSUM		0
 
 ; Allow write multiple sectors with single frame - costs 12 instructions
 #define MULTIBLOCK_WRITE			0
+
 ; Use bigger net_config frame (two MAC address formats) - save 8 instructions
 #define NET_CONFIG_MAC_EXTENDED		0
+
 ; Ethernet LEDs control enable - cost 10 bytes (5 instructions)
 #define ETH_LEDS					1
 
@@ -102,4 +107,8 @@ REG_INIT_REF		EQU 0xF20
 	CONFIGURE_NETWORK_SIZE	EQU ETH_ALEN + IP_ALEN
 #else
 	CONFIGURE_NETWORK_SIZE	EQU 0
+#endif
+
+#if TX_BUFFER_SIZE % 256
+	ERROR "Invalid TX_BUFFER_SIZE value."
 #endif
