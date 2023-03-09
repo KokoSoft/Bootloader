@@ -25,7 +25,7 @@ UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 #define TX_DOUBLE_BUFFERING			1
 
 ; Use dedicated function to checksum ip header
-#define IP_HEADER_FAST_CHECKSUM		0
+#define IP_HEADER_FAST_CHECKSUM		1
 
 ; Selects function used to checksum ethernet buffer:
 ; 0. basic - Operates on words only, bo byte suport, max 256 words
