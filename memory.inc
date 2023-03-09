@@ -92,6 +92,9 @@ UH	EQU 0	; Upper high byte
 
 #define RX_BIT_LE(proto, field, bit)			BANKMASK(RX_ADDR(proto, field) + (bit / 8)), (bit mod 8), RX_ACCESS
 
+; Transmit buffer
+#define TX_BUFFER(buffer, proto)				(BUF_Tx_ ## buffer ## _ ## proto)
+
 ; Variables are stored as little endian
 #define VAR8(variable)							BANKMASK(VAR8_ADDR(variable)), VAR_ACCESS
 #define VAR16(variable, byte_sel)				BANKMASK(VAR16_ADDR(variable, byte_sel)), VAR_ACCESS
@@ -133,23 +136,23 @@ PSECT ethernet_buffer,abs,local,noexec,note,size=2000h,space=100,class=ETH
 eth_rx_start:
 ORG 1E00h
 eth_rx_end:
-Tx_start:
-Tx_arp_start:	DS 1							; PER-PACKET CONTROL BYTE
-Tx_arp_mac:		DS _mac_size					; MAC Header
-Tx_arp:			DS _arp_size					; ARP Packet
-Tx_arp_status:	DS _tx_size						; 7-byte transmit status vector
-Tx_arp_end:										; ARP Packet end pointer
+BUF_Tx_start:
+BUF_Tx_arp_start:		DS 1					; PER-PACKET CONTROL BYTE
+BUF_Tx_arp_mac:			DS _mac_size			; MAC Header
+BUF_Tx_arp:				DS _arp_size			; ARP Packet
+BUF_Tx_arp_status:		DS _tx_size				; 7-byte transmit status vector
+BUF_Tx_arp_end:									; ARP Packet end pointer
 ; Tx_arp_size	50 bytes
 
 ;ALIGN 2
 ORG 1F00h
 
-Tx_boot_start:	DS 1							; PER-PACKET CONTROL BYTE
-Tx_boot_mac:	DS _mac_size					; MAC Header
-Tx_boot_ip:		DS _ip_size 					; IP Header
-Tx_boot_udp:	DS _udp_size					; UDP Header
-Tx_boot:		DS 100h - 50					; Bootloader protocol data
-Tx_boot_status:	DS _tx_size						; 7-byte transmit status vector
-Tx_boot_end:									; Bootloader Packet end pointer
+BUF_Tx_boot_start:		DS 1					; PER-PACKET CONTROL BYTE
+BUF_Tx_boot_mac:		DS _mac_size			; MAC Header
+BUF_Tx_boot_ip:			DS _ip_size 			; IP Header
+BUF_Tx_boot_udp:		DS _udp_size			; UDP Header
+BUF_Tx_boot_payload:	DS 100h - 50			; Bootloader protocol data
+BUF_Tx_boot_status:		DS _tx_size				; 7-byte transmit status vector
+BUF_Tx_boot_end:								; Bootloader Packet end pointer
 
 GLOBAL mem_init_data

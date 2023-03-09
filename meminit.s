@@ -74,8 +74,10 @@ mem_init_data:
 	MII_WRITE(PHLCON, PHY_LED)
 #endif
 
-	REG_WRITE(ETXSTH, HIGH(Tx_start))
-	REG_WRITE(ETXSTL, LOW(Tx_start))
+	; Transmit Start Pointer High Byte
+	REG_WRITE(ETXSTH, HIGH(BUF_Tx_start))
+	; Transmit Start Pointer Low Byte
+	REG_WRITE(ETXSTL, LOW(BUF_Tx_start))
 
 	; TODO: Remove debug leds
 	REG_WRITE(TRISB, 11110000B)	; RB0 - RB3 Ledy

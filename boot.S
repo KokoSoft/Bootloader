@@ -10,7 +10,6 @@
 #include "functions.inc"
 
 
-
 PSECT code
 
 ;-------------------------------------------------------------------------------
@@ -176,7 +175,7 @@ process_arp:
 	MOVWF	RX_BE16(arp, op, L)
 
 	; Set ethernet buffer write pointer
-	eth_write_pos	Tx_arp_mac + _mac_type
+	eth_write_pos	TX_BUFFER(arp, mac) + _mac_type
 
 	; Wait for transmitter idle before modifying the buffer content
 	tx_wait
@@ -341,7 +340,7 @@ done_frame_bnz:
 
 bootloader_processor:
 	; Move eth write pointer to response start
-	eth_write_pos	Tx_boot
+	eth_write_pos	TX_BUFFER(boot, payload)
 
 	; Wait for transmitter idle before modifying the buffer content
 	tx_wait
@@ -394,7 +393,7 @@ udp_send:
 	SUBWFB	VAR16(check_len, H), f
 
 	; Set ethernet read pointer
-	eth_read_pos	Tx_boot
+	eth_read_pos	TX_BUFFER(boot, payload)
 
 	; Checksum UDP payload
 	RCALL	eth_checksum_byte
@@ -460,7 +459,7 @@ ip_send:
 	eth_save_write_ptr
 
 	; Move eth write pointer to EtherType of ETH header
-	eth_write_pos	Tx_boot_mac + _mac_type
+	eth_write_pos	TX_BUFFER(boot, mac) + _mac_type
 
 	; Write EtherType, IP and UDP header to the ethernet buffer
 	; Source and destination MAC will be written by eth_write
