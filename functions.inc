@@ -139,12 +139,12 @@ ENDIF
 ENDM
 
 eth_get_tx_len_l MACRO
-	MOVLW	LOW(Tx_boot_udp)
+	MOVLW	LOW(TX_BUFFER(boot, udp))
 	SUBWF	EWRPTL, b, W
 ENDM
 
 eth_get_tx_len_h MACRO
-	MOVLW	HIGH(Tx_boot_udp)
+	MOVLW	HIGH(TX_BUFFER(boot, udp))
 	SUBWFB	EWRPTH, b, W
 ENDM
 
