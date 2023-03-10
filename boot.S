@@ -202,7 +202,7 @@ process_arp:
 
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
-	BSF		LATB, 2, a
+	BTG		LATB, 2, a
 	BRA		eth_send
 
 	
@@ -386,7 +386,7 @@ bootloader_processor:
 	RCALL	eth_write
 
 	; Clear counters
-	BTFSS	RX_PROTO(proto)+3, 7, a
+	BTFSS	RX_PROTO(proto)+3, 7, RX_ACCESS
 	BRA		payload
 	LFSR	0, VAR_ADDR(boot_counter)
 	MOVLW	3*4
@@ -546,7 +546,7 @@ ip_send:
 	MOVWF	RX_BE16(ip, chsum, L)
 	
 	; Save the ethernet write pointer - datagram end marker
-	; TODO: MoÅ¼e w tym miejscu zaprogramowaÄ‡ po prostu dÅ‚ugoÅ›Ä‡ pakietu zamiast robiÄ‡ to w funkcji send?
+	; TODO: Mo¿e w tym miejscu zaprogramowaæ po prostu d³ugoœæ pakietu zamiast robiæ to w funkcji send?
 	eth_save_write_ptr
 
 	; Move eth write pointer to EtherType of ETH header
