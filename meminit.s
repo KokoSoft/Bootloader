@@ -74,8 +74,17 @@ mem_init_data:
 	MII_WRITE(PHLCON, PHY_LED)
 #endif
 
+#if TX_BUFFER_SIZE == 256
+	; Ethernet Write Pointer High Byte
+	REG_WRITE(EWRPTH, HIGH(BUF_Tx_start))
+
+	; Transmit End Pointer High Byte
+	REG_WRITE(ETXNDH, HIGH(BUF_Tx_start))
+#endif
+
 	; Transmit Start Pointer High Byte
 	REG_WRITE(ETXSTH, HIGH(BUF_Tx_start))
+
 	; Transmit Start Pointer Low Byte
 	REG_WRITE(ETXSTL, LOW(BUF_Tx_start))
 

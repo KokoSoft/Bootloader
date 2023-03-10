@@ -175,7 +175,7 @@ process_arp:
 	MOVWF	RX_BE16(arp, op, L)
 
 	; Set ethernet buffer write pointer
-	eth_write_pos	TX_BUFFER(arp, mac) + _mac_type
+	eth_write_pos	TX_ADDR(mac, type)
 
 	; Wait for transmitter idle before modifying the buffer content
 	tx_wait
@@ -290,7 +290,7 @@ done_frame_bnz:
 
 	; Compute checksum
 	; TODO: Move to function to save 1 instructions
-	;CLRF	VAR16(checksum, H)	; Zero - already here because IP checksum was correct
+	;CLRF	VAR16(checksum, H)	; Checksum registers is already equal to zero because IP checksum was correct
 	MOVLW	IP_PROTO_UDP
 	MOVWF	VAR16(checksum, L)	; Protocol
 
@@ -340,7 +340,7 @@ done_frame_bnz:
 
 bootloader_processor:
 	; Move eth write pointer to response start
-	eth_write_pos	TX_BUFFER(boot, payload)
+	eth_write_pos	TX_PROTO(boot)
 
 	; Wait for transmitter idle before modifying the buffer content
 	tx_wait
@@ -376,8 +376,9 @@ udp_send:
 	MOVWF	VAR16(check_len, H)
 
 	; Prepare pseudoheader checksum
+	; Initialize checksum variable with protocol number
 	; TODO: Move to function to save 1 instructions
-	;CLRF	VAR16(checksum, H)	; Zero - already here because IP checksum was correct
+	;CLRF	VAR16(checksum, H)	; Zero is already in this register because IP checksum was correct
 	MOVLW	IP_PROTO_UDP
 	MOVWF	VAR16(checksum, L)	; Protocol
 
@@ -389,11 +390,15 @@ udp_send:
 	; Calculate payload length
 	MOVLW	_udp_size
 	SUBWF	VAR16(check_len, L), f
+#if TX_BUFFER_SIZE == 256
+	CLRF	VAR16(check_len, H)
+#else
 	MOVLW	0
 	SUBWFB	VAR16(check_len, H), f
+#endif
 
 	; Set ethernet read pointer
-	eth_read_pos	TX_BUFFER(boot, payload)
+	eth_read_pos	TX_PROTO(boot)
 
 	; Checksum UDP payload
 	RCALL	eth_checksum_byte
@@ -417,6 +422,7 @@ upd_checksum_not_zeroL:
 
 ip_send:
 	; Calculate IP Total Length
+	; UDP length is already stored in ip length field
 	MOVLW	_ip_size
 	ADDWF	RX_BE16(ip, len, L), f
 	MOVLW	0
@@ -456,10 +462,11 @@ ip_send:
 	MOVWF	RX_BE16(ip, chsum, L)
 	
 	; Save the ethernet write pointer - datagram end marker
+	; TODO: Może w tym miejscu zaprogramować po prostu długość pakietu zamiast robić to w funkcji send?
 	eth_save_write_ptr
 
 	; Move eth write pointer to EtherType of ETH header
-	eth_write_pos	TX_BUFFER(boot, mac) + _mac_type
+	eth_write_pos	TX_ADDR(mac, type)
 
 	; Write EtherType, IP and UDP header to the ethernet buffer
 	; Source and destination MAC will be written by eth_write
