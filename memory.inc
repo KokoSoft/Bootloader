@@ -74,7 +74,7 @@ UH	EQU 0	; Upper high byte
 
 ; Receive buffer
 #define RX_PROTO(proto)							(BUF_Rx_ ## proto)
-#define RX_ADDR(proto, field)					((BUF_Rx_ ## proto) + (_ ## proto ## _ ## field))
+#define RX_ADDR(proto, field)					(RX_PROTO(proto) + (_ ## proto ## _ ## field))
 #define RX_ADDR_BE8(proto, field)				RX_ADDR(proto, field)
 #define RX_ADDR_BE16(proto, field, byte_sel)	BE_BYTE16(RX_ADDR(proto, field), byte_sel)
 #define RX_ADDR_BE32(proto, field, byte_sel)	BE_BYTE32(RX_ADDR(proto, field), byte_sel)
@@ -93,7 +93,8 @@ UH	EQU 0	; Upper high byte
 #define RX_BIT_LE(proto, field, bit)			BANKMASK(RX_ADDR(proto, field) + (bit / 8)), (bit mod 8), RX_ACCESS
 
 ; Transmit buffer
-#define TX_BUFFER(buffer, proto)				(BUF_Tx_ ## buffer ## _ ## proto)
+#define TX_PROTO(proto)							(BUF_Tx_ ## proto)
+#define TX_ADDR(proto, field)					(TX_PROTO(proto) + (_ ## proto ## _ ## field))
 
 ; Variables are stored as little endian
 #define VAR8(variable)							BANKMASK(VAR8_ADDR(variable)), VAR_ACCESS
@@ -131,29 +132,21 @@ ip_addr:			DS IP_ALEN
 	; ERXST		5FA		1530
 	; ETXST		0
 	; ETXEN		0
+	; EWRPTH	0
+	; EWRPTL	0
 PSECT ethernet_buffer,abs,local,noexec,note,size=2000h,space=100,class=ETH
 ;ALIGN 2
 eth_rx_start:
-; 2000h - (TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE
-ORG 1E00h
+; TODO: O kurwa! Kolejny b³¹d assemblera! Nie uwzglêdnia kolejnoœci wykonywania dzia³añ! Czyta od lewej do prawej i chuj. Dobrze, ¿e przynajmniejnawiasy obs³uguje!
+;ORG 2000h - (TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE
+ORG 2000h - ((TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE)
 eth_rx_end:
-BUF_Tx_start:
-BUF_Tx_arp_start:		DS 1					; PER-PACKET CONTROL BYTE
-BUF_Tx_arp_mac:			DS _mac_size			; MAC Header
-BUF_Tx_arp:				DS _arp_size			; ARP Packet
-BUF_Tx_arp_status:		DS _tx_size				; 7-byte transmit status vector
-BUF_Tx_arp_end:									; ARP Packet end pointer
+BUF_Tx_start:			DS 1					; PER-PACKET CONTROL BYTE
+BUF_Tx_mac:				DS _mac_size			; MAC Header
+BUF_Tx_arp:
+BUF_Tx_ip:				DS _ip_size 			; IP Header
+BUF_Tx_udp:				DS _udp_size			; UDP Header
 ; Tx_arp_size	50 bytes
-
-;ALIGN 2
-ORG 1F00h
-
-BUF_Tx_boot_start:		DS 1					; PER-PACKET CONTROL BYTE
-BUF_Tx_boot_mac:		DS _mac_size			; MAC Header
-BUF_Tx_boot_ip:			DS _ip_size 			; IP Header
-BUF_Tx_boot_udp:		DS _udp_size			; UDP Header
-BUF_Tx_boot_payload:	DS 100h - 50			; Bootloader protocol data
-BUF_Tx_boot_status:		DS _tx_size				; 7-byte transmit status vector
-BUF_Tx_boot_end:								; Bootloader Packet end pointer
+BUF_Tx_boot:
 
 GLOBAL mem_init_data

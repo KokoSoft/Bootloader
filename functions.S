@@ -118,11 +118,17 @@ eth_send:
 	tx_wait_send
 
 	; Set Tx start and end address based on Write Pointer
-	MOVF	EWRPTH, b, W	; start = write_ptr & 0xff000
-	MOVWF	ETXSTH, b
-	MOVWF	ETXNDH, b
 	DECF	EWRPTL, b, W	; end = write_ptr - 1
 	MOVWF	ETXNDL, b
+#if TX_BUFFER_SIZE > 256
+	;sprawdz to przy pisaniu double bufferingu
+	MOVLW	0
+	SUBWFB	EWRPTH, b, W
+	MOVWF	ETXNDH, b
+
+	; Move write pointer to eth header
+	MOVFF	ETXSTH, EWRPTH
+#endif
 
 	; Move write pointer to eth header
 	CLRF	EWRPTL, b
@@ -133,17 +139,24 @@ eth_send:
 	MOVLW	ETH_ALEN
 	RCALL	eth_write
 
-	; Set out MAC as source address
+	; Set our MAC as source address
 	LFSR	0, mac_addr
 	MOVLW	ETH_ALEN
 	RCALL	eth_write
 
 	; DEBUG
-	;CLRF	ERDPTL, a
-	;MOVFF	EWRPTH, ERDPTH
-	;LFSR	2, 0x100
-	;CLRF	WREG, a
-	;RCALL	eth_read
+#if 1
+	CLRF	ERDPTL, a
+	MOVFF	EWRPTH, ERDPTH
+	LFSR	2, 0x100
+	CLRF	WREG, a
+	RCALL	eth_read
+	
+	;BTFSC 0,0,a
+	;DW OPCODE_TRAP
+	;BSF 0, 0, a
+	
+#endif
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2

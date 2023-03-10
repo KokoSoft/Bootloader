@@ -17,7 +17,8 @@
 #define MAC_ADDRESS			0x2A, 0xCB, 0x4F, 0x4C, 0xB2, 0x31
 UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 
-; Size of single transmit buffer, must be a multiple of 256 bytes
+; Size of single transmit buffer, must be a multiple of 256 bytes.
+; Must reserve 8 bytes for per-packet control byte and Transmit Status Vector
 #define TX_BUFFER_SIZE				256
 
 ; Transmit buffer mode

@@ -139,13 +139,17 @@ ENDIF
 ENDM
 
 eth_get_tx_len_l MACRO
-	MOVLW	LOW(TX_BUFFER(boot, udp))
+	MOVLW	LOW(TX_PROTO(udp))
 	SUBWF	EWRPTL, b, W
 ENDM
 
 eth_get_tx_len_h MACRO
-	MOVLW	HIGH(TX_BUFFER(boot, udp))
+#if TX_BUFFER_SIZE == 256
+	CLRF WREG, a
+#else
+	MOVLW	HIGH(TX_PROTO(udp))
 	SUBWFB	EWRPTH, b, W
+#endif
 ENDM
 
 ; Set ethernet read pointer to prepared tx data
@@ -159,8 +163,10 @@ ENDM
 
 ; Set ethernet write pointer (low address only)
 eth_write_pos MACRO pos
+#if TX_BUFFER_SIZE > 256
 	MOVLW	HIGH(pos)
 	MOVWF	EWRPTH, b
+#endif
 	MOVLW	LOW(pos)
 	MOVWF	EWRPTL, b
 ENDM
@@ -185,13 +191,17 @@ ENDM
 
 ; Save ethernet write pointer
 eth_save_write_ptr MACRO
+#if TX_BUFFER_SIZE > 256
 	MOVFF	EWRPTH, VAR16_ADDR(ptr, H)
+#endif
 	MOVFF	EWRPTL, VAR16_ADDR(ptr, L)
 ENDM
 
 ; Restore ethernet write pointer
 eth_restore_write_ptr MACRO
+#if TX_BUFFER_SIZE > 256
 	MOVFF	VAR16_ADDR(ptr, H), EWRPTH
+#endif
 	MOVFF	VAR16_ADDR(ptr, L), EWRPTL	
 ENDM
 
