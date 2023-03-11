@@ -466,7 +466,7 @@ ip_send:
 	eth_save_write_ptr
 
 	; Move eth write pointer to EtherType of ETH header
-	eth_write_pos	TX_ADDR(mac, type)
+	eth_write_pos_ex	TX_ADDR(mac, type)
 
 	; Write EtherType, IP and UDP header to the ethernet buffer
 	; Source and destination MAC will be written by eth_write

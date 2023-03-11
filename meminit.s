@@ -35,7 +35,7 @@ mem_init_data:
 	;PORTA pins, RA0 and RA1.
 	REG_WRITE(TRISA, 11111100B)	; Configure RA0 and RA1 as outputs - ETH LEDs
 #endif
-    
+
 	; Receive filters configuration
 	REG_WRITE(ERXFCON, RX_FILTER)
 
@@ -74,7 +74,7 @@ mem_init_data:
 	MII_WRITE(PHLCON, PHY_LED)
 #endif
 
-#if TX_BUFFER_SIZE == 256
+#if (TX_BUFFER_SIZE == 256) && !TX_DOUBLE_BUFFERING
 	; Ethernet Write Pointer High Byte
 	REG_WRITE(EWRPTH, HIGH(BUF_Tx_start))
 
@@ -82,8 +82,13 @@ mem_init_data:
 	REG_WRITE(ETXNDH, HIGH(BUF_Tx_start))
 #endif
 
+#if TX_DOUBLE_BUFFERING
+	; Initialize TX_PAGE value
+	REG_WRITE(TX_PAGE_ADDR, HIGH(BUF_Tx_start))
+#else
 	; Transmit Start Pointer High Byte
 	REG_WRITE(ETXSTH, HIGH(BUF_Tx_start))
+#endif
 
 	; Transmit Start Pointer Low Byte
 	REG_WRITE(ETXSTL, LOW(BUF_Tx_start))

@@ -120,18 +120,28 @@ eth_send:
 	; Set Tx start and end address based on Write Pointer
 	DECF	EWRPTL, b, W	; end = write_ptr - 1
 	MOVWF	ETXNDL, b
-#if TX_BUFFER_SIZE > 256
-	;sprawdz to przy pisaniu double bufferingu
+#if (TX_BUFFER_SIZE > 256) || TX_DOUBLE_BUFFERING
 	MOVLW	0
 	SUBWFB	EWRPTH, b, W
 	MOVWF	ETXNDH, b
+#endif
 
+#if TX_DOUBLE_BUFFERING
+	MOVF	TX_PAGE_REG, W
+	; Set start pointer
+	MOVWF	ETXSTH, b
+#elif TX_BUFFER_SIZE > 256
+	MOVLW	HIGH(Tx_Start)
+#endif
+
+#if TX_BUFFER_SIZE > 256
 	; Move write pointer to eth header
-	MOVFF	ETXSTH, EWRPTH
+	MOVWF	EWRPTH, b
 #endif
 
 	; Move write pointer to eth header
 	CLRF	EWRPTL, b
+	; Can save one instruction, if we accept incrementation of RDPT
 	MOVFF	EWRPTL, EDATA	; per-packet control byte
 
 	; Set destination MAC to source MAC of received frame
