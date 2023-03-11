@@ -28,7 +28,9 @@ PSECT rx_buffer,abs, ovrld, space=1,class=RAM
 ; Access RAM (0x00 - 0x5F)
 ORG VARS_BASE
 VAR_temp0:			DS 1
-VAR_tx_page:		DS 1
+
+; Empty, can be used
+DS 1
 
 ; Used to store partial checksum by eth_checksum_ptr, eth_checksum_byte, eth_checksum, ip_checksum
 VAR_checksum:		DS 2
@@ -143,10 +145,22 @@ ORG 2000h - ((TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE)
 eth_rx_end:
 BUF_Tx_start:			DS 1					; PER-PACKET CONTROL BYTE
 BUF_Tx_mac:				DS _mac_size			; MAC Header
-BUF_Tx_arp:
+BUF_Tx_arp:										; ARP Packet
 BUF_Tx_ip:				DS _ip_size 			; IP Header
 BUF_Tx_udp:				DS _udp_size			; UDP Header
 ; Tx_arp_size	50 bytes
 BUF_Tx_boot:
+
+#if TX_DOUBLE_BUFFERING
+; The errata for the microcontroller recommends not using the Pattern Match hardware filter.
+; It may allow some packets with an incorrect data pattern to be received. Also, in certain
+; configurations, packets with a valid pattern may be incorrectly discarded.
+; We use one of its configuration register to store the tramsmit page selector.
+; It is located in the address space supported by the reg_init function.
+#define TX_PAGE_ADDR	EPMOH
+#define TX_PAGE_ACCESS	b
+#define TX_PAGE_REG		BANKMASK(TX_PAGE_ADDR), TX_PAGE_ACCESS
+#define	TX_PAGE_BIT		0
+#endif
 
 GLOBAL mem_init_data

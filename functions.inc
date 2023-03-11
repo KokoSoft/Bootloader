@@ -122,20 +122,32 @@ GLOBAL eth_checksum
 ;-------------------------------------------------------------------------------
 ; Ethernet transmit buffer helper macros
 ;-------------------------------------------------------------------------------
-; Switch to next transmit buffer
-tx_switch_buffer MACRO
-
+; Places the value of the higher byte of the start address of the transmit buffer in WREG. 
+eth_tx_high_byte MACRO pos
+#if TX_DOUBLE_BUFFERING
+	MOVF	TX_PAGE_REG, W
+#else
+	MOVLW	HIGH(pos)
+#endif
 ENDM
 
-; Mark end of packet
-tx_set_end MACRO end_address
-IF nul end_address
-; argument was not supplied. Use current write pointer value
-	NOP
-ELSE ;argument was supplied
-	NOP
-ENDIF
-	NOP
+; Switch to next transmit buffer
+; Can save one instruction, but will requre init tx_page. Move tx_page to 
+tx_switch_buffer MACRO
+#if TX_DOUBLE_BUFFERING
+	; While the transmission is in progress, the ETXST and ETXND Pointers should not be modified.
+
+	; Toggle buffer select bit
+	BTG		BANKMASK(TX_PAGE_ADDR), TX_PAGE_BIT, TX_PAGE_ACCESS
+	MOVF	TX_PAGE_REG, W
+#elif TX_BUFFER_SIZE > 256
+	MOVLW	HIGH(BUF_Tx_start)
+#endif
+
+#if (TX_BUFFER_SIZE > 256) || TX_DOUBLE_BUFFERING
+	; Set write pointer high byte to packet start
+	MOVWF	EWRPTH, b
+#endif
 ENDM
 
 eth_get_tx_len_l MACRO
@@ -147,28 +159,32 @@ eth_get_tx_len_h MACRO
 #if TX_BUFFER_SIZE == 256
 	CLRF WREG, a
 #else
-	MOVLW	HIGH(TX_PROTO(udp))
+	eth_tx_high_byte	TX_PROTO(udp)
 	SUBWFB	EWRPTH, b, W
 #endif
 ENDM
 
 ; Set ethernet read pointer to prepared tx data
 eth_read_pos MACRO pos
-	MOVLW	HIGH(pos)
+	eth_tx_high_byte	pos
 	MOVWF	ERDPTH, a
 	MOVLW	LOW(pos)
 	MOVWF	ERDPTL, a
 ENDM
 
-
 ; Set ethernet write pointer (low address only)
 eth_write_pos MACRO pos
-#if TX_BUFFER_SIZE > 256
-	MOVLW	HIGH(pos)
-	MOVWF	EWRPTH, b
-#endif
 	MOVLW	LOW(pos)
 	MOVWF	EWRPTL, b
+ENDM
+
+; Set ethernet write pointer, use when write pointer high byte may be moved
+eth_write_pos_ex MACRO pos
+#if TX_BUFFER_SIZE > 256
+	eth_tx_high_byte	pos
+	MOVWF	EWRPTH, b
+#endif
+	eth_write_pos pos
 ENDM
 
 ; Wait for transmitter idle
