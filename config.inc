@@ -19,10 +19,10 @@ UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 
 ; Size of single transmit buffer, must be a multiple of 256 bytes.
 ; Must reserve 8 bytes for per-packet control byte and Transmit Status Vector
-#define TX_BUFFER_SIZE				512
+#define TX_BUFFER_SIZE				256
 
 ; Transmit buffer mode
-#define TX_DOUBLE_BUFFERING			0
+#define TX_DOUBLE_BUFFERING			1
 
 ; Use dedicated function to checksum ip header
 #define IP_HEADER_FAST_CHECKSUM		0
