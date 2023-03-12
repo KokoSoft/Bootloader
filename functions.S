@@ -171,7 +171,7 @@ eth_send:
 	RCALL	eth_write
 
 	; DEBUG
-#if 1
+#if 0
 	CLRF	ERDPTL, a
 	MOVFF	EWRPTH, ERDPTH
 	LFSR	2, 0x100
