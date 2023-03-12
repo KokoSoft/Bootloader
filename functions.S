@@ -131,7 +131,7 @@ eth_send:
 	; Set start pointer
 	MOVWF	ETXSTH, b
 #elif TX_BUFFER_SIZE > 256
-	MOVLW	HIGH(Tx_Start)
+	MOVLW	HIGH(BUF_Tx_start)
 #endif
 
 #if TX_BUFFER_SIZE > 256
