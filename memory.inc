@@ -129,6 +129,7 @@ ip_addr:			DS IP_ALEN
 ;-------------------------------------------------------------------------------
 ; Ethernet buffer layout
 ;-------------------------------------------------------------------------------
+#define ETH_BUFFER_SIZE		2000h
 	; Default values:
 	; ERXND		1FFF	8191
 	; ERXST		5FA		1530
@@ -136,12 +137,11 @@ ip_addr:			DS IP_ALEN
 	; ETXEN		0
 	; EWRPTH	0
 	; EWRPTL	0
-PSECT ethernet_buffer,abs,local,noexec,note,size=2000h,space=100,class=ETH
+PSECT ethernet_buffer,abs,local,noexec,note,size=ETH_BUFFER_SIZE,space=100,class=ETH
 ;ALIGN 2
 eth_rx_start:
 ; TODO: O kurwa! Kolejny b³¹d assemblera! Nie uwzglêdnia kolejnoœci wykonywania dzia³añ! Czyta od lewej do prawej i chuj. Dobrze, ¿e przynajmniejnawiasy obs³uguje!
-;ORG 2000h - (TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE
-ORG 2000h - ((TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE)
+ORG ETH_BUFFER_SIZE - ((TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE)
 eth_rx_end:
 BUF_Tx_start:			DS 1					; PER-PACKET CONTROL BYTE
 BUF_Tx_mac:				DS _mac_size			; MAC Header
@@ -157,10 +157,21 @@ BUF_Tx_boot:
 ; configurations, packets with a valid pattern may be incorrectly discarded.
 ; We use one of its configuration register to store the tramsmit page selector.
 ; It is located in the address space supported by the reg_init function.
-#define TX_PAGE_ADDR	EPMOH
-#define TX_PAGE_ACCESS	b
-#define TX_PAGE_REG		BANKMASK(TX_PAGE_ADDR), TX_PAGE_ACCESS
-#define	TX_PAGE_BIT		0
+
+#define IS_POW_2(x) (!((x) & ((x)-1)))
+
+#define TX_PAGE_ADDR		EPMOH
+#define TX_PAGE_ACCESS		b
+#define TX_PAGE_REG			BANKMASK(TX_PAGE_ADDR), TX_PAGE_ACCESS
+
+; If the buffer size is a power of two then we need to switch only one bit
+#define TX_PAGE_SINGLE_BIT	IS_POW_2(TX_BUFFER_SIZE)
+
+#if TX_PAGE_SINGLE_BIT
+#define	TX_PAGE_BIT			((TX_BUFFER_SIZE) >> 8)
+#else
+#define	TX_PAGE_BITS		HIGH( (-1 * (TX_BUFFER_SIZE)) ^ (-2 * (TX_BUFFER_SIZE)) )
+#endif
 #endif
 
 GLOBAL mem_init_data
