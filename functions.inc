@@ -121,8 +121,15 @@ tx_switch_buffer MACRO
 #if TX_DOUBLE_BUFFERING
 	; While the transmission is in progress, the ETXST and ETXND Pointers should not be modified.
 
+#if TX_PAGE_SINGLE_BIT
 	; Toggle buffer select bit
 	BTG		BANKMASK(TX_PAGE_ADDR), TX_PAGE_BIT, TX_PAGE_ACCESS
+#else
+	; Toggle buffer select bits
+	MOVLW	TX_PAGE_BITS
+	XORWF	TX_PAGE_REG, f
+#endif
+
 	MOVF	TX_PAGE_REG, W
 #elif TX_BUFFER_SIZE > 256
 	MOVLW	HIGH(BUF_Tx_start)
