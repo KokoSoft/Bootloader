@@ -31,7 +31,7 @@ UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 ; 0. basic - Operates on words only, bo byte suport, max 256 words
 ; 1. extended - Operates on words, odd lenght supported
 ; 2. fast - Operates on double words, words and bytes. Maximum speed but big code footprint
-#define ETH_CHECKSUM_MODE			0
+#define ETH_CHECKSUM_MODE			2
 
 ; Allow write multiple sectors with single frame - costs 12 instructions
 #define MULTIBLOCK_WRITE			0
