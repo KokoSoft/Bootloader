@@ -12,10 +12,10 @@
 ; Predefine MAC and IP addresses - cost 19 bytes (10 instructions)
 ;Set to 1 to set default network addresses
 #define CONFIGURE_NETWORK			1
-
-#define IP_ADDRESS			10, 11, 12, 13
 #define MAC_ADDRESS			0x2A, 0xCB, 0x4F, 0x4C, 0xB2, 0x31
 UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
+
+BOOTLOADER_VERSION	EQU	(1 << 8 | 0)
 
 ; Size of single transmit buffer, must be a multiple of 256 bytes.
 ; Must reserve 8 bytes for per-packet control byte and Transmit Status Vector
@@ -33,6 +33,11 @@ UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 ; 2. fast - Operates on double words, words and bytes. Maximum speed but big code footprint
 #define ETH_CHECKSUM_MODE			0
 
+; Pisz¹ ¿e maksymalny rozmiar ramki ethernet to 1518(1522 jeœli taggowana). Wlicza siê w to nag³ówek eth (mac mac len) payload i 4 bajtowy PSC na koñcu
+MAX_READ_LENGTH		EQU 1466 ; 1500 - ip - udp - boot header
+
+; 854+89
+
 ; Allow write multiple sectors with single frame - costs 12 instructions
 #define MULTIBLOCK_WRITE			0
 
@@ -44,6 +49,24 @@ UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 
 ; Use full-duplex connections - save 2 bytes (1 instruction)
 #define ETH_FULL_DUPLEX				1
+
+#define SMALL_BOOTLOADER			0
+
+#if SMALL_BOOTLOADER
+BOOTLOADER_SIZE	EQU	_FLASH_ERASE_SIZE
+#else
+; Protect two rows
+BOOTLOADER_SIZE	EQU	2 * _FLASH_ERASE_SIZE
+	; TODO: Dokumentacja: Bootloader jest PIC (Position independent Code), 
+	; ale jeœli zajmuje 2 strony to musi byæ wgrany od parzystej strony
+	; Config wordy s¹ umieszczone na koñcu ostatniej strony, i j¹ te¿ powinniœmy chroniæ...
+	; Nie przejmowa³bym siê teoretyczn¹ ochron¹ zewnêtrznej pamiêci
+	; EEPROMy i Flashe wymagaj¹ specjalnych sekwencji do kasowania i zapisu,
+	; których teraz nie bêdziesz implementowa³, newt nie wiadomo czy u¿yjesz takiej pamiêci
+	; Chcesz sobie tam podlutowaæ SRAM aby nie mêczyæ flasha podczas developmentu
+	; a nie bêdziesz przecie¿ trzyma³ bootloadera w pamiêci ulotnej. 
+#endif
+
 
 ;-------------------------------------------------------------------------------
 ; Ethernet module configuration
@@ -106,6 +129,10 @@ PHY_LED				EQU (1 << PHLCON_STRCH_POSN) | (PHY_LED_STR_NORMAL << PHLCON_LFRQ_POS
 ;-------------------------------------------------------------------------------
 ARP_FILTER_LENGTH	EQU 0x08
 REG_INIT_REF		EQU 0xF20
+
+; Maximum PC value
+MAX_PC	EQU	2 * 1024 * 1024 - 1
+
 
 ; Assembler directives (e.g., EQU) will be processed regardless of the state
 ; of the condition expression and should not be used inside an IF construct.
