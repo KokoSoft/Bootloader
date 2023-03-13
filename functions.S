@@ -189,7 +189,6 @@ eth_send:
 	BRA	done_frame
 	
 
-
 ;-------------------------------------------------------------------------------
 ; Compare memory, return to done_frame on mismatch
 ; W - compare length, 0 will compare 256 bytes
@@ -307,46 +306,10 @@ ENDM
 	ADDWFC	VAR16(checksum, L), f
 
 	RETURN
-#endif
+#endif /* IP_HEADER_FAST_CHECKSUM */
 
 
-
-
-
-
-#if 0
-; TODO: To be removed.
-;-------------------------------------------------------------------------------
-; Ethernet read with IP Checksum
-; Super simple implementation. Operates on words only.
-; FSR2 - Destination pointer
-; WREG - words count, 0 will compute 256 words
-; Uses temp0!
-; Can save 1 instruction, but will use 3 more cycles per word.
-;-------------------------------------------------------------------------------
-; Premium version, 1 more instruction, 3 cycles per word less.
-eth_read_checksum:
-	MOVWF	VAR8(temp0)
-	BCF		CARRY					; Clear carry flag
-
-eth_read_checksum_continue:
-	MOVF	EDATA, a, W
-	MOVWF	POSTINC2, a
-	ADDWFC	VAR16(checksum, H), f
-	MOVF	EDATA, a, W
-	MOVWF	POSTINC2, a
-	ADDWFC	VAR16(checksum, L), f
-
-	DECFSZ	VAR8(temp0), f				; Decrement Skip if 0 - no carry flag modification
-	BRA		eth_read_checksum_continue
-
-	MOVLW	0
-	ADDWFC	VAR16(checksum, H), f
-	ADDWFC	VAR16(checksum, L), f
-	RETURN
-#endif
-
-
+#if ETH_CHECKSUM_MODE == 0
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer
 ; Super simple implementation. Operates on words only.
@@ -356,22 +319,14 @@ eth_read_checksum_continue:
 ; Can save 1 instruction, if called always with cleared carry flag.
 ; 12 + 3 = 15 instructions
 ;-------------------------------------------------------------------------------
-eth_checksum_byte:
+eth_checksum:
 	; Divide UDP length by 2 - length in words - stored in W!
 	BCF		CARRY			; Clear carry flag
 	RRCF	VAR16(check_len, H), W
 	RRCF	VAR16(check_len, L), W
 
-;-------------------------------------------------------------------------------
-; IP Checksum ethernet buffer
-; Super simple implementation. Operates on words only.
-; WREG - words count, 0 will compute 256 words
-; Uses temp0!
-; Can save 1 instruction, but will use 3 more cycles per word.
-; 12 instructions
-;-------------------------------------------------------------------------------
 ; Premium version, 1 more instruction, 3 cycles per word less.
-eth_checksum:
+eth_checksum_words:
 	MOVWF	VAR8(temp0)
 	BCF		CARRY					; Clear carry flag
 
@@ -390,40 +345,40 @@ eth_checksum_continue:
 	RETURN
 
 
-#if 0
+#elif ETH_CHECKSUM_MODE == 1
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer with byte support
-; check_lenH:check_lenL - data length in bytes.
+; check_len - data length in bytes.
 ; Can save 1 instruction, but will use 3 more cycles per word.
 ; Uses temp0
 ; 26 instructions
 ;-------------------------------------------------------------------------------
 ; Premium version, 1 more instruction, 3 cycles per word less.
-_ip_checksum:
+eth_checksum:
 	MOVFF	VAR16_ADDR(check_len, L), VAR8_ADDR(temp0)
-	BCF		CARRY					; Clear carry flag
+	BCF		CARRY						; Clear carry flag
 	RRCF	VAR16(check_len, H), f		; size >>= 1;
 	RRCF	VAR16(check_len, L), f
-	BCF		CARRY					; Clear carry flag, BCF not touch flags
-	BNZ		loop					; Z flag set by RRCF
+	BCF		CARRY						; Clear carry flag, BCF not touch flags
+	BNZ		eth_checksum_loop			; Z flag set by RRCF
 
-loop_check:							; sizeL is 0
+eth_checksum_loop_check:				; check_lenL is 0
 	MOVF	VAR16(check_len, H), f
-	BZ		loop_done
+	BZ		eth_checksum_loop_done
 	DECFSZ	VAR16(check_len, H), f		; Decrement Skip if 0 - no carry flag modification
 	NOP
 
-loop:
+eth_checksum_loop:
 	MOVF	EDATA, a, W
 	ADDWFC	VAR16(checksum, H), f
 	MOVF	EDATA, a, W
 	ADDWFC	VAR16(checksum, L), f
 
 	DCFSNZ	VAR16(check_len, L), f		; Decrement Skip if not 0 - no carry flag modification
-	BRA		loop_check
-	BRA		loop
+	BRA		eth_checksum_loop_check
+	BRA		eth_checksum_loop
 
-loop_done:
+eth_checksum_loop_done:
 	MOVLW	0
 	BTFSC	VAR_BIT(temp0, 0)
 	MOVF	EDATA, a, W
@@ -432,37 +387,75 @@ loop_done:
 	ADDWFC	VAR16(checksum, L), f
 	ADDWFC	VAR16(checksum, H), f
 	RETURN
-#endif
 
 
-#if 0
-PSECT code
+#elif ETH_CHECKSUM_MODE == 2
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer
-; Super simple implementation. Operates on words only.
-; Uses EWRPT as end address
-; Warning! Will loop forever if (ERDPT & 1) != (EWRPT & 1)
-; Can save 1 instruction, but will use 3 more cycles per word.
-; 14 instructions
+; Fast implementation, operates on double words, words, support byte
+; check_lenH:check_lenL - data length in bytes.
+; Uses temp0!
+; 46 instructions
 ;-------------------------------------------------------------------------------
-; Premium version, 1 more instruction, 3 cycles per word less.
-eth_checksum_ptr:
-	BCF		CARRY					; Clear carry flag
+eth_checksum:
+    MOVFF   VAR16_ADDR(check_len, L), VAR8_ADDR(temp0)
+    BCF     CARRY                   ; Clear carry flag
+    RRCF    VAR16(check_len, H), f        ; size >>= 1;
+    RRCF    VAR16(check_len, L), f
+    BCF     CARRY                   ; Clear carry flag
+    RRCF    VAR16(check_len, H), f        ; size >>= 1;
+    RRCF    VAR16(check_len, L), f
 
-eth_checksum_ptr_continue:
+    BCF     CARRY                   ; Clear carry flag
+    MOVF    VAR16(check_len, L), f
+    BNZ     eth_checksum_dword
+
+eth_checksum_check_dword:                         ; sizeL is 0
+    MOVF    VAR16(check_len, H), f
+    BZ      eth_checksum_check_word
+    DECFSZ  VAR16(check_len, H), f           ; Decrement Skip if 0 - no carry flag modification
+    NOP
+
+eth_checksum_dword:
 	MOVF	EDATA, a, W
-	ADDWFC	VAR16(checksum, H), f
+    ADDWFC  VAR16(checksum, H), f
+    MOVF	EDATA, a, W
+    ADDWFC  VAR16(checksum, L), f
 	MOVF	EDATA, a, W
-	ADDWFC	VAR16(checksum, L), f
+    ADDWFC  VAR16(checksum, H), f
+    MOVF	EDATA, a, W
+    ADDWFC  VAR16(checksum, L), f
 
-	MOVF	ERDPTL, a, W
-	XORWF	EWRPTL, b, W
-	BNZ		eth_checksum_ptr_continue
-	MOVF	ERDPTH, a, W
-	XORWF	EWRPTH, b, W
-	BNZ		eth_checksum_ptr_continue
+    DCFSNZ  VAR16(check_len, L), f           ; Decrement Skip if not 0 - no carry flag modification
+    BRA     eth_checksum_check_dword
+    BRA     eth_checksum_dword
 
-	ADDWFC	VAR16(checksum, H), f
-	ADDWFC	VAR16(checksum, L), f
-	RETURN
+eth_checksum_check_word:
+    ; Handle single word
+    BTFSS   VAR_BIT(temp0, 1)
+    BRA     eth_checksum_check_byte
+
+	MOVF	EDATA, a, W
+    ADDWFC  VAR16(checksum, H), f
+    MOVF	EDATA, a, W
+    ADDWFC  VAR16(checksum, L), f
+
+eth_checksum_check_byte:
+    BTFSC   VAR_BIT(temp0, 0)
+    BRA     eth_checksum_single_byte
+	; No byte
+    MOVLW   0
+    ADDWFC  VAR16(checksum, H), f
+    ADDWFC  VAR16(checksum, L), f
+    RETURN
+
+eth_checksum_single_byte:
+    MOVF	EDATA, a, W
+    ADDWFC  VAR16(checksum, H), f
+    MOVLW   0
+    ADDWFC  VAR16(checksum, L), f
+    ADDWFC  VAR16(checksum, H), f
+    RETURN
+#else /* ETH_CHECKSUM_MODE == 2 */
+	ERROR "Invalid ETH_CHECKSUM_MODE value!"
 #endif

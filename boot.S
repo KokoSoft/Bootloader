@@ -306,7 +306,7 @@ done_frame_bnz:
 	; Checksum UDP Payload
 	MOVFF	RX_ADDR_BE16(udp, len, H), VAR16_ADDR(check_len, H)
 	MOVFF	RX_ADDR_BE16(udp, len, L), VAR16_ADDR(check_len, L)
-	RCALL	eth_checksum_byte
+	RCALL	eth_checksum
 
 	; Restore read pointer
 	MOVFF	VAR16_ADDR(ptr, H), ERDPTH
@@ -395,7 +395,7 @@ udp_send:
 	eth_read_pos	TX_PROTO(boot)
 
 	; Checksum UDP payload
-	RCALL	eth_checksum_byte
+	RCALL	eth_checksum
 
 	; Finalize udp checksum
 	; If the computed checksum is zero, it is transmitted as all ones

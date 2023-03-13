@@ -83,24 +83,14 @@ GLOBAL ip_checksum
 
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer
-; Super simple implementation. Operates on words only.
-; check_lenH:check_lenL - data length in bytes.
-; Operate on word only. 0 will compute 256 words
+; check_len - data length in bytes.
+; ETH_CHECKSUM_MODE selects a function used to checksum ethernet buffer:
+; 0. basic - Operates on words only, bo byte suport, max 256 words
+; 1. extended - Operates on words, odd lenght supported
+; 2. fast - Operates on double words, words and bytes. Maximum speed but big code footprint
+;
 ; Uses temp0!
-; Can save 1 instruction, if called always with cleared carry flag.
-; 12 + 3 = 15 instructions
 ;-------------------------------------------------------------------------------
-GLOBAL eth_checksum_byte
-
-;-------------------------------------------------------------------------------
-; IP Checksum ethernet buffer
-; Super simple implementation. Operates on words only.
-; WREG - words count, 0 will compute 256 words
-; Uses temp0!
-; Can save 1 instruction, but will use 3 more cycles per word.
-; 12 instructions
-;-------------------------------------------------------------------------------
-; Premium version, 1 more instruction, 3 cycles per word less.
 GLOBAL eth_checksum
 
 ;-------------------------------------------------------------------------------
