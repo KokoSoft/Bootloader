@@ -39,7 +39,7 @@ VAR_checksum:		DS 2
 ; Can be outside of access ram
 VAR_ptr:			DS 2
 
-; Parameters for eth_checksum_byte
+; Parameter for eth_checksum
 ; Lenght of a data to be checksumed
 VAR_check_len:		DS 2
 
@@ -158,7 +158,9 @@ BUF_Tx_boot:
 ; We use one of its configuration register to store the tramsmit page selector.
 ; It is located in the address space supported by the reg_init function.
 
-#define IS_POW_2(x) (!((x) & ((x)-1)))
+#define IS_POW_2(x)			(!((x) & ((x)-1)))
+
+#define TX_LOG2(x)			(((x) > 1) + ((x) > 2) + ((x) > 4) + ((x) > 8) + ((x) > 16) + ((x) > 32) + ((x) > 64))
 
 #define TX_PAGE_ADDR		EPMOH
 #define TX_PAGE_ACCESS		b
@@ -168,7 +170,7 @@ BUF_Tx_boot:
 #define TX_PAGE_SINGLE_BIT	IS_POW_2(TX_BUFFER_SIZE)
 
 #if TX_PAGE_SINGLE_BIT
-#define	TX_PAGE_BIT			((TX_BUFFER_SIZE) >> 8)
+#define	TX_PAGE_BIT			TX_LOG2((TX_BUFFER_SIZE) >> 8)
 #else
 #define	TX_PAGE_BITS		HIGH( (-1 * (TX_BUFFER_SIZE)) ^ (-2 * (TX_BUFFER_SIZE)) )
 #endif
