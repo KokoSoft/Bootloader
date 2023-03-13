@@ -5,6 +5,8 @@
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 #include "assembler_bug_wa.inc"
 
+GLOBAL done_frame_pop
+
 ;-------------------------------------------------------------------------------
 ; Memory initializer (34 words)
 ; Set Flash pointer (TBLPTRU:TBLPTRH:TBLPTRL) before calling this function

@@ -29,8 +29,8 @@ PSECT rx_buffer,abs, ovrld, space=1,class=RAM
 ORG VARS_BASE
 VAR_temp0:			DS 1
 
-; Empty, can be used
-DS 1
+; Expected sequential number
+VAR_expected_seq:	DS 1
 
 ; Used to store partial checksum by eth_checksum_ptr, eth_checksum_byte, eth_checksum, ip_checksum
 VAR_checksum:		DS 2
@@ -126,6 +126,7 @@ arp_filter:			DS ARP_FILTER_LENGTH
 ; MAC address must be placed right before IP address (ARP packet aligned)
 mac_addr:			DS ETH_ALEN
 ip_addr:			DS IP_ALEN
+programmer_ip_addr:	DS IP_ALEN
 
 
 ;-------------------------------------------------------------------------------

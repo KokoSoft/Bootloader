@@ -163,13 +163,13 @@ STATUS_INV_ADDR		EQU	6		; Forbidden operation address
 STATUS_PKT_SIZE		EQU	7		; Invalid packet size
 
 ; Header
-_hdr_version		EQU 0x00	; be8_t			version;
-_hdr_seq			EQU 0x01	; be8_t			seq;
-_hdr_operation		EQU 0x02	; be8_t			operation;
-_hdr_status			EQU 0x03	; be8_t			status;
-_hdr_address		EQU 0x04	; be32_t		address;
-_hdr_length			EQU 0x08	; be16_t		length;
-_hdr_size			EQU 0x04 ; 0x0A
+_boot_version		EQU 0x00	; be8_t			version;
+_boot_seq			EQU 0x01	; be8_t			seq;
+_boot_operation		EQU 0x02	; be8_t			operation;
+_boot_status		EQU 0x03	; be8_t			status;
+_boot_address		EQU 0x04	; be32_t		address;
+_boot_length		EQU 0x08	; be16_t		length;
+_boot_size			EQU 0x04 ; 0x0A
 
 ; DiscoverReply
 _disc_rpl_version	EQU 0x00	; be16_t	version;
