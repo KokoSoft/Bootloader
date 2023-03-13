@@ -4,6 +4,8 @@
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 
+#include "config.inc"
+
 ;-------------------------------------------------------------------------------
 ; Receive Status Vector (little endian fields)
 ;-------------------------------------------------------------------------------
@@ -140,60 +142,52 @@ ARP_OP_REPLY	EQU 0x0002	; ARP reply
 
 PROTOCOL_VERSION	EQU 1
 
-OP_DISCOVER			EQU 0		; Reply: DiscoverReply
-OP_NET_CONFIG		EQU 1		; Reply: DiscoverReply
-OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
-OP_WRITE			EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-OP_ERASE			EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
-OP_CHECKSUM			EQU 5		; Reply: ChecksumReply
-OP_RESET			EQU 6		; Reply: Header with STATUS_OK
+OP_DISCOVER			EQU 0		; Reply: DiscoverReply, STATUS_OK
+OP_NET_CONFIG		EQU 1		; Reply: DiscoverReply, STATUS_OK
+OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_OK
+OP_WRITE			EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
+OP_ERASE			EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
+OP_RESET			EQU 5		; Reply: Header with STATUS_OK
+OP_ERASE_WRITE		EQU 6		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
+OP_CHIP_ERASE		EQU 7		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
+OP_CHECKSUM			EQU 8		; Reply: ChecksumReply, STATUS_OK
+OP_MAX				EQU OP_CHIP_ERASE
 
 STATUS_REQUEST		EQU	0		; It is a request to a device
 STATUS_OK			EQU	1			
 STATUS_INPROGRESS	EQU	2		; Read, Write, Erase, Checksum in progress
-STATUS_DONE			EQU	3		; Read, Write, Erase, Checksum done, attached reply structure / Reply with data
-STATUS_INV_OP		EQU	4		; Unknown / unsupported operation
-STATUS_INV_PARAM	EQU	5		; Invalid operation parameters
-STATUS_INV_SRC		EQU	6		; Sender aren't permitted to perform this operation - discover first
+STATUS_INV_OP		EQU	3		; Unknown / unsupported operation
+STATUS_INV_PARAM	EQU	4		; Invalid operation parameters
+STATUS_INV_SRC		EQU	5		; Sender aren't permitted to perform this operation - discover first
+STATUS_INV_ADDR		EQU	6		; Forbidden operation address
+STATUS_PKT_SIZE		EQU	7		; Invalid packet size
 
 ; Header
 _hdr_version		EQU 0x00	; be8_t			version;
 _hdr_seq			EQU 0x01	; be8_t			seq;
 _hdr_operation		EQU 0x02	; be8_t			operation;
 _hdr_status			EQU 0x03	; be8_t			status;
-_hdr_size			EQU 0x04
+_hdr_address		EQU 0x04	; be32_t		address;
+_hdr_length			EQU 0x08	; be16_t		length;
+_hdr_size			EQU 0x04 ; 0x0A
 
 ; DiscoverReply
 _disc_rpl_version	EQU 0x00	; be16_t	version;
-_disc_rpl_dev_id	EQU 0x02	; be16_t	device_id;
-_disc_rpl_boot_addr	EQU 0x04	; be32_t	bootloader_address;
+_disc_rpl_boot_addr	EQU 0x02	; be32_t	bootloader_address;
+_disc_rpl_dev_id	EQU 0x06	; be16_t	device_id;
 _disc_rpl_size		EQU 0x08
 
 ; NetworkConfig
-_netcfg_ip			EQU 0x00	; uint32_t	ip_address;
-_netcfg_mac			EQU 0x04	; uint8_t	mac_address[6];
+_netcfg_mac			EQU 0x00	; uint8_t	mac_address[6];
+_netcfg_ip			EQU 0x06	; uint32_t	ip_address;
+#if NET_CONFIG_MAC_EXTENDED
+_netcfg_mac_ext		EQU 0x0A	; uint8_t	mac_address[6];
+_netcfg_size		EQU 0x10
+#else
 _netcfg_size		EQU 0x0A
+#endif
 
-; Read
-_read_address		EQU 0x00	; be32_t	address;	// Starting address
-_read_length		EQU 0x04	; be16_t	length;		// Length of data to read
-_read_size			EQU 0x06
-
-; Write
-_write_address		EQU	0x00	; be32_t	address;
-_write_data			EQU	0x04	; be8_t		data[64];
-_write_size			EQU	0x05
-
-; Erase
-_erase_address		EQU	0x00	; be32_t	address;
-_erase_size			EQU	0x04
-
-; Checksum
-_cksum_address		EQU 0x00	; be32_t	address;
-_cksum_length		EQU 0x04	; be32_t	length;
-_cksum_size			EQU 0x08
 
 ; ChecksumReply
 _cksum_rpl_sum		EQU 0x00	; be32_t	checksum;
 _cksum_rpl_size		EQU 0x04
-
