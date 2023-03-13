@@ -46,7 +46,7 @@ UDP_PORT			EQU 666	; UDP port used by bootloader to communicate
 RX_FILTER			EQU ERXFCON_BCEN_MASK | ERXFCON_UCEN_MASK | ERXFCON_CRCEN_MASK
 
 ; Maximum frame length to be permitted to be received or transmitted.
-RX_LENGTH_MAX		EQU 1518
+ETH_MAX_LENGTH		EQU 1518
 
 #if ETH_FULL_DUPLEX
 	; MAC Receive Enable, Pause Control Frame Reception Enable, Pause Control Frame Transmission Enable

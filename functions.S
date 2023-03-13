@@ -113,6 +113,22 @@ eth_write:
 ; so max packet length is 255
 ; Function jumps to done_frame on exit
 ;-------------------------------------------------------------------------------
+
+	; TODO: Bug report
+	; I encountered a transmitter error. If the sent frame exceeds allowed length
+	; configured in the MAMXFLH register, the transmitter cuts it and reports an
+	; Abort error. The next frame will never be sent - the transmitter goes into
+	; a deadlock! Resetting it before sending the next frame helps.
+	; This occurred on full-duplex!
+	
+	; TODO: Errata workaround
+	; Errata:
+	; There is a small chance that the Ethernet transmit engine will internally
+	; deadlock. The PHY will stop transmitting the packet and normal RX operations
+	; will continue. However, the TXRTS bit will stay set indefinitely. The TXIF
+	; and TXERIF bits will not become set.
+	; This deadlock condition applies only to half-duplex operation
+
 eth_send:
 	; Wait for transmitter idle
 	tx_wait_send
@@ -178,7 +194,7 @@ eth_send:
 ; Compare memory, return to done_frame on mismatch
 ; W - compare length, 0 will compare 256 bytes
 ; FSR0, FSR1 - Pointers to data
-; Function jumps to done_frame_pop if the memory differs
+; Function jumps to done_frame if the memory differs
 ; Uses temp0!
 ;-------------------------------------------------------------------------------
 memcmp:
@@ -188,12 +204,17 @@ memcmp_continue:
 	; Compare
 	MOVF	POSTINC0, a, W
 	XORWF	POSTINC1, a, W
-	BNZ		done_frame_pop
+	BNZ		memcmp_diff
 
 	; Loop control
 	DECF	VAR8(temp0), f
 	BNZ		memcmp_continue
 	RETURN
+
+memcmp_diff:
+	; Detected dfferent value. pop return address from stack and drop packet
+	POP
+	BRA		done_frame
 
 
 ;-------------------------------------------------------------------------------

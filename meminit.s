@@ -52,8 +52,8 @@ mem_init_data:
 #endif
 
 	; Maximum frame length to be permitted to be received or transmitted.
-	REG_WRITE(MAMXFLH, HIGH(RX_LENGTH_MAX))
-	REG_WRITE(MAMXFLL, LOW(RX_LENGTH_MAX))
+	REG_WRITE(MAMXFLH, HIGH(ETH_MAX_LENGTH))
+	REG_WRITE(MAMXFLL, LOW(ETH_MAX_LENGTH))
 
 	; MAC Non Back-to-Back Inter-Packet Gap Register
 	REG_WRITE(MAIPGL, LOW(NBB_GAP))

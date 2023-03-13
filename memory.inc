@@ -142,8 +142,7 @@ PSECT ethernet_buffer,abs,local,noexec,note,size=2000h,space=100,class=ETH
 ;ALIGN 2
 eth_rx_start:
 ; TODO: O kurwa! Kolejny b³¹d assemblera! Nie uwzglêdnia kolejnoœci wykonywania dzia³añ! Czyta od lewej do prawej i chuj. Dobrze, ¿e przynajmniejnawiasy obs³uguje!
-;ORG 2000h - (TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE
-ORG 2000h - ((TX_DOUBLE_BUFFERING + 1) * TX_BUFFER_SIZE)
+ORG ETH_BUFFER_SIZE - ((TX_DOUBLE_BUFFERING + 1) * (TX_BUFFER_SIZE))
 eth_rx_end:
 BUF_Tx_start:			DS 1					; PER-PACKET CONTROL BYTE
 BUF_Tx_mac:				DS _mac_size			; MAC Header
