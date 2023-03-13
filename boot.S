@@ -72,15 +72,9 @@ phy_init:
 	MOVLW	ECON1_RXEN_MASK			; Receive Enable
 	MOVWF	ECON1, a				; ETHERNET CONTROL REGISTER 1
 
-	; Jump to received frame processor
-	BRA		done_frame
-
 ;-------------------------------------------------------------------------------
 ; Frame processor
 ;-------------------------------------------------------------------------------
-done_frame_pop:				; Verify functions jump here if an error was detected
-	; TODO: Move it to memcmp
-	POP
 done_frame:
 	; Advance Eth read pointer (ERDPT)
 	; Freeing Receive Buffer Space (ERXRDPT)

@@ -58,13 +58,10 @@ GLOBAL done_frame
 ; Compare memory, return to done_frame on mismatch
 ; W - compare length, 0 will compare 256 bytes
 ; FSR0, FSR1 - Pointers to data
-; Function jumps to done_frame_pop if the memory differs
+; Function jumps to done_frame if the memory differs
 ; Uses temp0!
 ;-------------------------------------------------------------------------------
 GLOBAL memcmp
-
-; Return point
-GLOBAL done_frame_pop
 
 ;-------------------------------------------------------------------------------
 ; Copy memory
@@ -83,19 +80,6 @@ GLOBAL memcpy
 ; Can save 1 instruction, but will use 3 more cycles per word.
 ;-------------------------------------------------------------------------------
 GLOBAL ip_checksum
-
-#if 0
-; TODO: To be removed.
-;-------------------------------------------------------------------------------
-; Ethernet read with IP Checksum
-; Super simple implementation. Operates on words only.
-; FSR2 - Destination pointer
-; WREG - words count, 0 will compute 256 words
-; Uses temp0!
-; Can save 1 instruction, but will use 3 more cycles per word.
-;-------------------------------------------------------------------------------
-GLOBAL eth_read_checksum
-#endif
 
 ;-------------------------------------------------------------------------------
 ; IP Checksum ethernet buffer
