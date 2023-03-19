@@ -11,6 +11,8 @@
 ;PSECT boot_functions,space=0
 PSECT code
 
+db 'functions@'
+
 GLOBAL init
 	BRA	init
 ;-------------------------------------------------------------------------------

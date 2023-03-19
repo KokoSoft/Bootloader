@@ -31,6 +31,7 @@ PSECT code
 ; mac + ip + udp to 42 bajty, zostaje 18 bajtów
 ; boot header ma 10 bajtów, netconfig
 
+db 'bootloader'
 ;-------------------------------------------------------------------------------
 ; Configure network addresses
 ; 8/16 instructions
