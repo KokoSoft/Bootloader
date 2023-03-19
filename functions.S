@@ -213,6 +213,7 @@ memcmp_continue:
 	RETURN
 
 memcmp_diff:
+done_frame_pop:
 	; Detected dfferent value. pop return address from stack and drop packet
 	POP
 	BRA		done_frame
