@@ -41,7 +41,7 @@
 #define OPCODE(code, addr, len)		NULLIFY(code | REL_DIFF(addr, len), ADDR_ERROR(addr, len)) | SLEEPIFY(ADDR_ERROR(addr, len))
 
 ; produce NOP if not error
-#define NOPIFY(opcode, error)		(opcode | (OPCODE_NOP2 * (error)))
+#define NOPIFY(opcode, error)		(OPCODE_NOP2 | ((opcode) * (error)))
 
 #define BC		_BC
 _BC MACRO address
