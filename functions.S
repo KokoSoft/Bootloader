@@ -8,8 +8,7 @@
 #include "config.inc"
 #include "functions.inc"
 
-;PSECT boot_functions,space=0
-PSECT code
+PSECT boot_functions,space=0
 
 db 'functions@'
 

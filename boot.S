@@ -10,9 +10,7 @@
 #include "functions.inc"
 #include "bootloader.inc"
 
-
-PSECT code
-db 'Boot'
+PSECT boot_header,space=0
 ;-------------------------------------------------------------------------------
 ; Bootloader services structure
 ;-------------------------------------------------------------------------------
@@ -26,7 +24,8 @@ start:
 ;-------------------------------------------------------------------------------
 ; Bootloader entry point
 ;-------------------------------------------------------------------------------
-PSECT code
+PSECT boot,space=0
+
 GLOBAL init
 init:
 	; Select bank E
@@ -476,6 +475,7 @@ reply_inprogress:
 	MOVLW	STATUS_INPROGRESS
 	BRA		reply_code
 
+PSECT udp_send,space=0
 
 ; Return with status in WREG
 reply_wrong_packet_size:

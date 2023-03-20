@@ -20,7 +20,7 @@ DEVID1		EQU 3FFFFEh
 DEVID2		EQU 3FFFFFh
 
 
-PSECT code
+PSECT bootloader,space=0
 
 ; Code limit = 928 bytes
 ; 9 instructions remeaning (886 / 929)

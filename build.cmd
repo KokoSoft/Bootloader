@@ -1,6 +1,14 @@
 ::"c:\Program Files\Microchip\xc8\v2.40\pic-as\bin\pic-as.exe" -mcpu=PIC18F67J60 functions.S
 cd out
-"c:\Program Files\Microchip\xc8\v2.40\pic-as\bin\pic-as.exe" -mcpu=PIC18F67J60 -Wl,-Map=bootloader.map,-ABOOT=1FC00h-1FFF7h,-AETH=0h-1FFFh,-Pmem_init=BOOT ../functions.S ../boot.S ../meminit.s ../chip_config.asm ../bootloader.S -msummary=+mem,+psect,+class,-hex,-file
+"c:\Program Files\Microchip\xc8\v2.40\pic-as\bin\pic-as.exe" ^
+-mcpu=PIC18F67J60 -Wl,-Map=bootloader.map,-ABOOT=1F800h-1FFF7h,-AETH=0h-1FFFh,^
+-Pboot_header=1F800h,-Pboot,-Pbootloader,-Pudp_send,-Pboot_functions,-Pmem_init ^
+../functions.S ^
+../boot.S ^
+../meminit.s ^
+../chip_config.asm ^
+../bootloader.S ^
+-msummary=+mem,+psect,+class,-hex,-file
 
 :: -L-ver=XC8^PIC(R)^Assembler###V2.40
 :: -D__PICAS -D__PICAS_VERSION=2400
