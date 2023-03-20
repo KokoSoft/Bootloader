@@ -10,10 +10,6 @@
 
 PSECT boot_functions,space=0
 
-db 'functions@'
-
-GLOBAL init
-	BRA	init
 ;-------------------------------------------------------------------------------
 ; Memory initializer (34 words)
 ; Set Flash pointer (TBLPTRU:TBLPTRH:TBLPTRL) before calling this function
@@ -204,18 +200,14 @@ memcmp_continue:
 	; Compare
 	MOVF	POSTINC0, a, W
 	XORWF	POSTINC1, a, W
-	BNZ		memcmp_diff
+GLOBAL done_frame_pop_bra
+	; Detected dfferent value. pop return address from stack and drop packet
+	BNZ		done_frame_pop_bra
 
 	; Loop control
 	DECF	VAR8(temp0), f
 	BNZ		memcmp_continue
 	RETURN
-
-memcmp_diff:
-done_frame_pop:
-	; Detected dfferent value. pop return address from stack and drop packet
-	POP
-	BRA		done_frame
 
 
 ;-------------------------------------------------------------------------------

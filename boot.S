@@ -357,6 +357,7 @@ bootloader_processor:
 done_frame_bra:
 	BRA		done_frame
 
+GLOBAL done_frame_pop_bra
 done_frame_pop_bra:
 	POP
 	BRA		done_frame
@@ -400,7 +401,7 @@ check_sender_continue:
 	MOVF	VAR8(expected_seq), W
 	XORWF	RX_BE8(boot, seq), W
 	; Duplicated / out of order frame - just drop
-	BNZ		done_frame_pop
+	BNZ		done_frame_pop_bra
 	; Increment sequential number
 	INCF	VAR8(expected_seq), f
 
@@ -417,7 +418,7 @@ check_sender_continue:
 bootloader_skip_check:
 	; Check is it a request to a device (status = STATUS_REQUEST)
 	MOVF	RX_BE8(boot, status), W
-	BNZ		done_frame_pop
+	BNZ		done_frame_pop_bra
 
 	; Set flash memory pointer and check its range
 	MOVF	RX_BE32(boot, address, UH), f
@@ -440,7 +441,6 @@ bootloader_skip_check:
 	;RCALL	reply_code
 	; Jump to packet processor
 	;BRA		done_frame
-
 
 DW NOPIFY(OPCODE_SLEEP, HIGH(switch_end) - HIGH(switch_start))
 
@@ -470,37 +470,8 @@ switch_start:
 	BRA		bootloader_chip_erase
 switch_end:
 
-; Special reply type, must call here
-reply_inprogress:
-	MOVLW	STATUS_INPROGRESS
-	BRA		reply_code
 
 PSECT udp_send,space=0
-
-; Return with status in WREG
-reply_wrong_packet_size:
-	RETLW	STATUS_PKT_SIZE
-reply_illegal_address:
-	RETLW	STATUS_INV_ADDR
-reply_invalid_param:
-	RETLW	STATUS_INV_PARAM
-reply_invalid_operation:
-	RETLW	STATUS_INV_OP
-reply_invalid_sender:
-	RETLW	STATUS_INV_SRC
-reply_success:
-	RETLW	STATUS_OK
-
-reply_code:	; Place status in WREG
-	MOVWF	RX_BE8(boot, status)
-
-	; Move eth write pointer to response start
-	eth_write_pos	TX_PROTO(boot)
-
-	; Write header
-	LFSR	0, RX_PROTO(boot)
-	MOVLW	_boot_size
-	RCALL	eth_write
 
 ;-------------------------------------------------------------------------------
 ; UDP packet send

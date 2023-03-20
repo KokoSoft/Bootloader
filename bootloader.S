@@ -31,7 +31,6 @@ PSECT bootloader,space=0
 ; mac + ip + udp to 42 bajty, zostaje 18 bajtów
 ; boot header ma 10 bajtów, netconfig
 
-db 'bootloader'
 ;-------------------------------------------------------------------------------
 ; Configure network addresses
 ; 8/16 instructions
@@ -157,6 +156,43 @@ bootloader_read_copy:
 
 
 ;-------------------------------------------------------------------------------
+; Send reply with status
+; ?? instructions
+;-------------------------------------------------------------------------------
+; Special reply type, must call here
+reply_inprogress:
+	MOVLW	STATUS_INPROGRESS
+	BRA		reply_code
+
+
+; Return with status in WREG
+reply_wrong_packet_size:
+	RETLW	STATUS_PKT_SIZE
+reply_illegal_address:
+	RETLW	STATUS_INV_ADDR
+reply_invalid_param:
+	RETLW	STATUS_INV_PARAM
+reply_invalid_operation:
+	RETLW	STATUS_INV_OP
+reply_invalid_sender:
+	RETLW	STATUS_INV_SRC
+reply_success:
+	RETLW	STATUS_OK
+
+reply_code:	; Place status in WREG
+	MOVWF	RX_BE8(boot, status)
+
+	; Move eth write pointer to response start
+	eth_write_pos	TX_PROTO(boot)
+
+	; Write header
+	LFSR	0, RX_PROTO(boot)
+	MOVLW	_boot_size
+	RCALL	eth_write
+	BRA		udp_send
+
+
+;-------------------------------------------------------------------------------
 ; Erase and write flash memory row
 ; 17 instructions
 ;-------------------------------------------------------------------------------
@@ -190,6 +226,7 @@ bootloader_erase_write:
 
 	; Perform flash write
 	BRA flash_write_checked
+
 
 ;-------------------------------------------------------------------------------
 ; Write flash memory

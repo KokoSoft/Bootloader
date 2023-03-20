@@ -12,6 +12,7 @@ GLOBAL reply_invalid_operation
 GLOBAL reply_invalid_sender
 GLOBAL reply_success
 GLOBAL reply_code
+GLOBAL udp_send
 
 ;-------------------------------------------------------------------------------
 ; Configure network addresses
