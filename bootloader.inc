@@ -4,6 +4,11 @@
 ;
 ; Author: Adrian Warecki <embedded@kokosoftware.pl>
 
+GLOBAL bootloader_processor
+GLOBAL bootloader_reply_code
+GLOBAL udp_send
+
+#if 0
 GLOBAL reply_inprogress
 GLOBAL reply_wrong_packet_size
 GLOBAL reply_illegal_address
@@ -55,5 +60,6 @@ GLOBAL bootloader_erase
 ; 16 instructions
 ;-------------------------------------------------------------------------------
 GLOBAL bootloader_chip_erase
+#endif
 
 #define UPPER(x) (((x) >> 16) & 0xff)

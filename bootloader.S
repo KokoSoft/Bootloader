@@ -31,7 +31,121 @@ PSECT bootloader,space=0
 ; mac + ip + udp to 42 bajty, zostaje 18 bajtów
 ; boot header ma 10 bajtów, netconfig
 
-db 'bootloader'
+
+;-------------------------------------------------------------------------------
+; Bootloader packet processor
+;-------------------------------------------------------------------------------
+bootloader_processor:
+	; Check operation code
+	; Skip version and sequential number check if operation is OP_DISCOVER od OP_NET_CONFIG
+	MOVLW	OP_NET_CONFIG
+	; Skip instruction if operation > OP_NET_CONFIG, unsigned comparison
+	CPFSGT	RX_BE8(boot, operation)
+	BRA		bootloader_skip_check
+
+	; Check protocol version
+	MOVLW	PROTOCOL_VERSION
+	XORWF	RX_BE8(boot, version), W
+	; Unsupported protocol version - can't return error code
+	BNZ		done_frame_pop_bra
+
+	; Check if the sender is permitted
+	LFSR	0, RX_ADDR(ip, src)
+	LFSR	1, programmer_ip_addr
+	MOVLW	IP_ALEN
+	MOVWF	VAR8(temp0)
+
+check_sender_continue:
+	; Compare byte
+	MOVF	POSTINC0, a, W
+	XORWF	POSTINC1, a, W
+	BNZ		reply_invalid_sender
+	; Can save one instruction
+	;MOVLW	STATUS_INV_SRC
+	;BNZ	reply_error
+
+	; Loop control
+	DECF	VAR8(temp0), f
+	BNZ		check_sender_continue
+
+	; Check sequential number, must be one greater than the previous
+	; TODO: Or just diffrent?
+	MOVF	VAR8(expected_seq), W
+	XORWF	RX_BE8(boot, seq), W
+	; Duplicated / out of order frame - just drop
+	BNZ		done_frame_pop_bra
+	; Increment sequential number
+	INCF	VAR8(expected_seq), f
+
+	; Check operation code range
+	MOVLW	OP_MAX
+	; Skip next instruction if operation > OP_MAX, unsigned comparison
+	CPFSGT	RX_BE8(boot, operation)
+
+	; Drop broadcast frames - only OP_DISCOVER od OP_NET_CONFIG can use broadcast frame
+	; Skip next instruction if broadcast bit not set
+	BTFSC	RX_BROADCAST
+	BRA		reply_invalid_operation
+
+bootloader_skip_check:
+	; Check is it a request to a device (status = STATUS_REQUEST)
+	MOVF	RX_BE8(boot, status), W
+	BNZ		done_frame_pop_bra
+
+	; Set flash memory pointer and check its range
+	MOVF	RX_BE32(boot, address, UH), f
+	BNZ		reply_invalid_param
+
+	MOVF	RX_BE32(boot, address, UL), W
+	MOVWF	TBLPTRU, a
+	XORWF	TBLPTRU, a, W
+	BNZ		reply_invalid_param
+
+	MOVFF	RX_ADDR_BE32(boot, address, L), TBLPTRL
+	MOVFF	RX_ADDR_BE32(boot, address, H), TBLPTRH
+
+	; Wait for transmitter idle before modifying the buffer content
+	tx_wait
+
+	; Move eth write pointer to response payload start
+	eth_write_pos	TX_ADDR(boot, payload)
+
+DW NOPIFY(OPCODE_SLEEP, HIGH(switch_end) - HIGH(switch_start))
+
+switch_start:
+	; Read current PC to update PCLATH and PCLATU
+	MOVF	PCL, a, W
+	RLCF	RX_BE8(boot, operation), W
+	; To prevent the PC from becoming misaligned with word instructions,
+	; the Least Significant bit of PCL is fixed to a value of ‘0’.
+	; TODO: Microchip's simulator have a bug, and use lsb in address!
+	ADDWF	PCL, a, f
+
+	; OP_DISCOVER			EQU 0		; Reply: DiscoverReply
+	BRA		bootloader_discover
+	; OP_NET_CONFIG			EQU 1		; Reply: DiscoverReply
+	BRA		bootloader_net_config
+	; OP_READ				EQU 2		; Reply: ReadReply with STATUS_INPROGRESS, STATUS_DONE
+	BRA		bootloader_read
+	; OP_WRITE				EQU 3		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA		bootloader_write
+	; OP_ERASE				EQU 4		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA		bootloader_erase
+	; OP_RESET				EQU 5		; Reply: Header with STATUS_OK
+	; TODO: Send reply to reset? Check some magic values?
+	RESET
+	; OP_ERASE_WRITE		EQU 6		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA		bootloader_erase_write
+	; OP_CHIP_ERASE			EQU 7		; Reply: Header with STATUS_INPROGRESS, STATUS_DONE
+	BRA		bootloader_chip_erase
+switch_end:
+
+GLOBAL done_frame
+GLOBAL done_frame_pop_bra
+done_frame_pop_bra:
+	POP
+	BRA		done_frame
+
 ;-------------------------------------------------------------------------------
 ; Configure network addresses
 ; 8/16 instructions
@@ -157,6 +271,43 @@ bootloader_read_copy:
 
 
 ;-------------------------------------------------------------------------------
+; Send reply with status
+; ?? instructions
+;-------------------------------------------------------------------------------
+; Special reply type, must call here
+reply_inprogress:
+	MOVLW	STATUS_INPROGRESS
+	BRA		bootloader_reply_code
+
+
+; Return with status in WREG
+reply_wrong_packet_size:
+	RETLW	STATUS_PKT_SIZE
+reply_illegal_address:
+	RETLW	STATUS_INV_ADDR
+reply_invalid_param:
+	RETLW	STATUS_INV_PARAM
+reply_invalid_operation:
+	RETLW	STATUS_INV_OP
+reply_invalid_sender:
+	RETLW	STATUS_INV_SRC
+reply_success:
+	RETLW	STATUS_OK
+
+bootloader_reply_code:	; Place status in WREG
+	MOVWF	RX_BE8(boot, status)
+
+	; Move eth write pointer to response start
+	eth_write_pos_ex	TX_PROTO(boot)
+
+	; Write header
+	LFSR	0, RX_PROTO(boot)
+	MOVLW	_boot_size
+	RCALL	eth_write
+	BRA		udp_send
+
+
+;-------------------------------------------------------------------------------
 ; Erase and write flash memory row
 ; 17 instructions
 ;-------------------------------------------------------------------------------
@@ -190,6 +341,7 @@ bootloader_erase_write:
 
 	; Perform flash write
 	BRA flash_write_checked
+
 
 ;-------------------------------------------------------------------------------
 ; Write flash memory
