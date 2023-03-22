@@ -169,7 +169,8 @@ _boot_operation		EQU 0x02	; be8_t			operation;
 _boot_status		EQU 0x03	; be8_t			status;
 _boot_address		EQU 0x04	; be32_t		address;
 _boot_length		EQU 0x08	; be16_t		length;
-_boot_size			EQU 0x04 ; 0x0A
+_boot_payload		EQU 0x0A
+_boot_size			EQU 0x0A
 
 ; DiscoverReply
 _disc_rpl_version	EQU 0x00	; be16_t	version;
