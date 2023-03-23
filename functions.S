@@ -36,7 +36,7 @@ mem_init_loop:
 	BRA		mem_init
 
 mem_init_done:
-	RETURN
+	RETURN	0
 
 
 ;-------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ reg_init_do:
 	BRA		reg_init_loop
 
 reg_init_done:
-	RETURN
+	RETURN	0
 
 
 ;-------------------------------------------------------------------------------
@@ -87,7 +87,7 @@ eth_read:
 	MOVFF	EDATA, POSTINC2
 	DECFSZ	WREG, W, a
 	BRA		eth_read
-	RETURN
+	RETURN	0
 
 
 ;-------------------------------------------------------------------------------
@@ -100,7 +100,7 @@ eth_write:
 	MOVFF	POSTINC0, EDATA
 	DECFSZ	WREG, W, a
 	BRA		eth_write
-	RETURN
+	RETURN	0
 
 
 ;-------------------------------------------------------------------------------
@@ -207,7 +207,7 @@ GLOBAL done_frame_pop_bra
 	; Loop control
 	DECF	VAR8(temp0), f
 	BNZ		memcmp_continue
-	RETURN
+	RETURN	0
 
 
 ;-------------------------------------------------------------------------------
@@ -220,7 +220,7 @@ memcpy:
 	MOVFF	POSTINC0, POSTINC1
 	DECF	WREG, W, a
 	BNZ		memcpy
-	RETURN
+	RETURN	0
 
 
 ;-------------------------------------------------------------------------------
@@ -250,7 +250,7 @@ ip_checksum_continue:
 	; Loop control
 	DECF	VAR8(temp0), f
 	BNZ		ip_checksum_continue
-	RETURN
+	RETURN	0
 #else
 ; Premium version, 1 more instruction, 3 cycles per word less.
 ip_checksum:						; 12 instructions
@@ -269,7 +269,7 @@ ip_checksum_continue:
 	MOVLW	0
 	ADDWFC	VAR16(checksum, H), f
 	ADDWFC	VAR16(checksum, L), f
-	RETURN
+	RETURN	0
 #endif
 
 
@@ -299,7 +299,7 @@ ENDM
 	ADDWFC	VAR16(checksum, H), f
 	ADDWFC	VAR16(checksum, L), f
 
-	RETURN
+	RETURN	0
 #endif /* IP_HEADER_FAST_CHECKSUM */
 
 
@@ -336,7 +336,7 @@ eth_checksum_continue:
 	MOVLW	0
 	ADDWFC	VAR16(checksum, H), f
 	ADDWFC	VAR16(checksum, L), f
-	RETURN
+	RETURN	0
 
 
 #elif ETH_CHECKSUM_MODE == 1
@@ -380,7 +380,7 @@ eth_checksum_loop_done:
 	MOVLW	0
 	ADDWFC	VAR16(checksum, L), f
 	ADDWFC	VAR16(checksum, H), f
-	RETURN
+	RETURN	0
 
 
 #elif ETH_CHECKSUM_MODE == 2
@@ -441,7 +441,7 @@ eth_checksum_check_byte:
     MOVLW   0
     ADDWFC  VAR16(checksum, H), f
     ADDWFC  VAR16(checksum, L), f
-    RETURN
+    RETURN	0
 
 eth_checksum_single_byte:
     MOVF	EDATA, a, W
@@ -449,7 +449,7 @@ eth_checksum_single_byte:
     MOVLW   0
     ADDWFC  VAR16(checksum, L), f
     ADDWFC  VAR16(checksum, H), f
-    RETURN
+    RETURN	0
 #else /* ETH_CHECKSUM_MODE == 2 */
 	ERROR "Invalid ETH_CHECKSUM_MODE value!"
 #endif
