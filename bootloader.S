@@ -489,7 +489,7 @@ flash_write_cycle:
 	; Set WR bit in EECON1 register. This will begin the write cycle.
 	BSF		WR				; start erase (CPU stall)
 	CLRF	EECON1, a
-	RETURN
+	RETURN	0
 
 ;-------------------------------------------------------------------------------
 ; Erase whole chip without bootloader and config words
@@ -552,7 +552,7 @@ check_erase_address:
 	;XORWF	PCLATU, a, W
 	;BNZ		no_boot_code
 	CPFSEQ	PCLATU, a
-	RETURN						; Is is not boot code area
+	RETURN	0					; Is is not boot code area
 
 	MOVLW	HIGH(~(BOOTLOADER_SIZE - 1))
 	ANDWF	PCLATH, a, f
@@ -560,7 +560,7 @@ check_erase_address:
 	;XORWF	PCLATH, a, W
 	;BNZ		no_boot_code
 	CPFSEQ	PCLATH, a
-	RETURN						; Is is not boot code area
+	RETURN	0					; Is is not boot code area
 
 reply_error_pop:
 	POP
