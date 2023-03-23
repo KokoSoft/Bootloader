@@ -183,7 +183,11 @@ eth_send:
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
+#if MULTIPLE_TX_PACKET
+	RETURN 0
+#else
 	BRA	done_frame
+#endif
 	
 
 ;-------------------------------------------------------------------------------

@@ -75,6 +75,16 @@ phy_init:
 ;-------------------------------------------------------------------------------
 ; Frame processor
 ;-------------------------------------------------------------------------------
+; Send reply and done frame processing
+eth_send_done MACRO
+#if MULTIPLE_TX_PACKET
+	RCALL	eth_send
+	BRA		done_frame
+#else
+	BRA		eth_send
+#endif
+ENDM
+
 done_frame:
 	; Advance Eth read pointer (ERDPT)
 	; Freeing Receive Buffer Space (ERXRDPT)
@@ -103,9 +113,9 @@ done_frame:
 	MOVLW	HIGH(eth_rx_end - 1)
 	MOVWF	ERXRDPTH, b
 
-wait_frame:					; Wait loop for receive network frame
+	; Wait loop for receive network frame
 	BTFSS	PKTIF			; Receive Packet Pending Interrupt Flag bit		a EIR		F 60h
-	BRA		wait_frame
+	BRA		$-2
 
 	; Decrement EPKTCNT
 	BSF		PKTDEC			;												b ECON2		E FEh
@@ -192,7 +202,7 @@ process_arp:
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
 	BSF		LATB, 2, a
-	BRA		eth_send
+	eth_send_done
 
 	
 	; Every internet module must be able to forward a datagram of 68
@@ -494,6 +504,6 @@ ip_send:
 ;	BRA gdb
 	;BCF		LATB, 3, a
 	; Send data!
-	BRA		eth_send
+	eth_send_done
 	
 END start; Bootloader entry point

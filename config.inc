@@ -37,6 +37,9 @@ BOOTLOADER_VERSION	EQU	(1 << 8 | 0)
 ; Pisz¹ ¿e maksymalny rozmiar ramki ethernet to 1518(1522 jeœli taggowana). Wlicza siê w to nag³ówek eth (mac mac len) payload i 4 bajtowy PSC na koñcu
 MAX_READ_LENGTH		EQU 1466 ; 1500 - ip - udp - boot header
 
+; Enable support for sending multiple response packets
+#define MULTIPLE_TX_PACKET			1
+
 ; 854+89
 
 ; Allow write multiple sectors with single frame - costs 12 instructions
