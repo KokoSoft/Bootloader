@@ -103,15 +103,12 @@ done_frame:
 	MOVLW	HIGH(eth_rx_end - 1)
 	MOVWF	ERXRDPTH, b
 
-wait_frame:					; Wait loop for receive network frame
+	; Wait loop for receive network frame
 	BTFSS	PKTIF			; Receive Packet Pending Interrupt Flag bit		a EIR		F 60h
-	BRA		wait_frame
+	BRA		$-2
 
 	; Decrement EPKTCNT
 	BSF		PKTDEC			;												b ECON2		E FEh
-
-	; Switch Tx buffer page
-	tx_switch_buffer
 
 
 ;-------------------------------------------------------------------------------
@@ -192,7 +189,14 @@ process_arp:
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
 	BSF		LATB, 2, a
+
+	; Send reply and done frame processing
+#if MULTIPLE_TX_PACKET
+	RCALL	eth_send
+	BRA		done_frame
+#else
 	BRA		eth_send
+#endif
 
 	
 	; Every internet module must be able to forward a datagram of 68
@@ -331,6 +335,28 @@ done_frame_bnz:
 	XORWF	RX_BE16(udp, dst, L), W
 	BNZ		done_frame_bnz
 
+;-------------------------------------------------------------------------------
+; Prepare reply frame
+;-------------------------------------------------------------------------------
+	; Configure some response packet fields. It will allow to send multiple
+	; response packets to a single incomming packet.
+	; Destination address
+	LFSR	0,	RX_ADDR(ip, src)
+	LFSR	1,	RX_ADDR(ip, dst)
+	MOVLW	IP_ALEN
+	RCALL	memcpy
+
+	; Move source port to the destination port
+	MOVFF	RX_ADDR_BE16(udp, src, H), RX_ADDR_BE16(udp, dst, H)
+	MOVFF	RX_ADDR_BE16(udp, src, L), RX_ADDR_BE16(udp, dst, L)
+
+	; Set source port
+	MOVLW	HIGH(UDP_PORT)
+	MOVWF	RX_BE16(udp, src, H)
+	MOVLW	LOW(UDP_PORT)
+	MOVWF	RX_BE16(udp, src, L)
+
+
 
 ;-------------------------------------------------------------------------------
 ; Bootloader packet processor
@@ -362,15 +388,15 @@ done_frame_bra:
 ;-------------------------------------------------------------------------------
 PSECT udp_send,space=0
 udp_send:
-	; Move source port to the destination port
-	MOVFF	RX_ADDR_BE16(udp, src, H), RX_ADDR_BE16(udp, dst, H)
-	MOVFF	RX_ADDR_BE16(udp, src, L), RX_ADDR_BE16(udp, dst, L)
+	; IP addresses must be configured before calculating the udp checksum to
+	; correctly respond to a broadcast frame. Set the source address just before
+	; sending the response to support ip address change.
 
-	; Set source port
-	MOVLW	HIGH(UDP_PORT)
-	MOVWF	RX_BE16(udp, src, H)
-	MOVLW	LOW(UDP_PORT)
-	MOVWF	RX_BE16(udp, src, L)
+	; Source address
+	LFSR	0,	ip_addr
+	LFSR	1,	RX_ADDR(ip, src)
+	MOVLW	IP_ALEN
+	RCALL	memcpy
 
 	; Calculate datagram length with header
 	; Store it also in checksum field. It will act as UDP Length field
@@ -390,7 +416,9 @@ udp_send:
 	; Prepare pseudoheader checksum
 	; Initialize checksum variable with protocol number
 	; TODO: Move to function to save 1 instructions
-	;CLRF	VAR16(checksum, H)	; Zero is already in this register because IP checksum was correct
+#ifdef MULTIPLE_TX_PACKET
+	CLRF	VAR16(checksum, H)	; Zero is already in this register because IP checksum was correct
+#endif
 	MOVLW	IP_PROTO_UDP
 	MOVWF	VAR16(checksum, L)	; Protocol
 
@@ -443,18 +471,6 @@ ip_send:
 	; Set Time-to-live
 	MOVLW	IP_DEF_TTL
 	MOVWF	RX_BE8(ip, ttl)
-
-	; Destination address
-	LFSR	0,	RX_ADDR(ip, src)
-	LFSR	1,	RX_ADDR(ip, dst)
-	MOVLW	IP_ALEN
-	RCALL	memcpy
-
-	; Source address
-	LFSR	0,	ip_addr
-	LFSR	1,	RX_ADDR(ip, src)
-	MOVLW	IP_ALEN
-	RCALL	memcpy
 
 	; Clear IP checksum field
 	CLRF	RX_BE16(ip, chsum, H)

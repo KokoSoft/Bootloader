@@ -36,13 +36,11 @@ VAR_expected_seq:	DS 1
 VAR_checksum:		DS 2
 
 ; Used to temporarly store of ethernet ram read/write pointer
-; Can be outside of access ram
 VAR_ptr:			DS 2
 
 ; Parameter for eth_checksum
 ; Lenght of a data to be checksumed
 VAR_check_len:		DS 2
-
 
 ;ALIGN 0x10 DO NOT USE ALIGN!!!! Assembler bug?!
 ;ORG 0x60 - (_rx_size + _mac_size + _ip_size + _udp_size)		; 0x60 - 0x07 - 0x0E - 0x14 - 0x08 = 2F - 0x15D RX Frame RAM Buffer
