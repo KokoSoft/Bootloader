@@ -372,6 +372,20 @@ done_frame_bra:
 ;-------------------------------------------------------------------------------
 PSECT udp_send,space=0
 udp_send:
+	; Must be set here, to support replay to a broadcast frames.
+	; These addresses are used to calculate the udp checksum. 
+	; Destination address
+	LFSR	0,	RX_ADDR(ip, src)
+	LFSR	1,	RX_ADDR(ip, dst)
+	MOVLW	IP_ALEN
+	RCALL	memcpy
+
+	; Source address
+	LFSR	0,	ip_addr
+	LFSR	1,	RX_ADDR(ip, src)
+	MOVLW	IP_ALEN
+	RCALL	memcpy
+
 	; Move source port to the destination port
 	MOVFF	RX_ADDR_BE16(udp, src, H), RX_ADDR_BE16(udp, dst, H)
 	MOVFF	RX_ADDR_BE16(udp, src, L), RX_ADDR_BE16(udp, dst, L)
@@ -453,18 +467,6 @@ ip_send:
 	; Set Time-to-live
 	MOVLW	IP_DEF_TTL
 	MOVWF	RX_BE8(ip, ttl)
-
-	; Destination address
-	LFSR	0,	RX_ADDR(ip, src)
-	LFSR	1,	RX_ADDR(ip, dst)
-	MOVLW	IP_ALEN
-	RCALL	memcpy
-
-	; Source address
-	LFSR	0,	ip_addr
-	LFSR	1,	RX_ADDR(ip, src)
-	MOVLW	IP_ALEN
-	RCALL	memcpy
 
 	; Clear IP checksum field
 	CLRF	RX_BE16(ip, chsum, H)
