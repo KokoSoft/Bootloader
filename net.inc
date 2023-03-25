@@ -162,15 +162,18 @@ STATUS_INV_SRC		EQU	5		; Sender aren't permitted to perform this operation - dis
 STATUS_INV_ADDR		EQU	6		; Forbidden operation address
 STATUS_PKT_SIZE		EQU	7		; Invalid packet size
 
-; Header
+; Request header
 _boot_version		EQU 0x00	; be8_t			version;
 _boot_seq			EQU 0x01	; be8_t			seq;
 _boot_operation		EQU 0x02	; be8_t			operation;
 _boot_status		EQU 0x03	; be8_t			status;
 _boot_address		EQU 0x04	; be32_t		address;
 _boot_length		EQU 0x08	; be16_t		length;
-_boot_payload		EQU 0x0A
 _boot_size			EQU 0x0A
+
+; Reply header
+_boot_replay_size			EQU 0x04
+_boot_replay_payload		EQU 0x04
 
 ; DiscoverReply
 _disc_rpl_version	EQU 0x00	; be16_t	version;

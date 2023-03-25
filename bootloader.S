@@ -36,6 +36,10 @@ PSECT bootloader,space=0
 ; Bootloader packet processor
 ;-------------------------------------------------------------------------------
 bootloader_processor:
+	; Read bootloader header
+	MOVLW	_boot_size
+	RCALL	eth_read
+
 	; Check operation code
 	; Skip version and sequential number check if operation is OP_DISCOVER od OP_NET_CONFIG
 	MOVLW	OP_NET_CONFIG
@@ -108,7 +112,7 @@ bootloader_skip_check:
 	tx_wait
 
 	; Move eth write pointer to response payload start
-	eth_write_pos	TX_ADDR(boot, payload)
+	eth_write_pos	TX_ADDR(boot, replay_payload)
 
 DW NOPIFY(OPCODE_SLEEP, HIGH(switch_end) - HIGH(switch_start))
 
@@ -171,12 +175,12 @@ bootloader_net_config:
 	RCALL	eth_read
 #else
 	; 12 instructions
-	MOVFF	mac_addr + 0, MAADR5
-	MOVFF	mac_addr + 1, MAADR6
+	MOVFF	mac_addr + 0, MAADR1
+	MOVFF	mac_addr + 1, MAADR2
 	MOVFF	mac_addr + 2, MAADR3
 	MOVFF	mac_addr + 3, MAADR4
-	MOVFF	mac_addr + 4, MAADR1
-	MOVFF	mac_addr + 5, MAADR2
+	MOVFF	mac_addr + 4, MAADR5
+	MOVFF	mac_addr + 5, MAADR6
 #endif
 
 	; Fallback to discover
@@ -297,13 +301,21 @@ reply_success:
 bootloader_reply_code:	; Place status in WREG
 	MOVWF	RX_BE8(boot, status)
 
+	; Save the ethernet write pointer - datagram end marker
+	; TODO: Może w tym miejscu zaprogramować po prostu długość pakietu zamiast robić to w funkcji send?
+	eth_save_write_ptr
+
 	; Move eth write pointer to response start
 	eth_write_pos_ex	TX_PROTO(boot)
 
-	; Write header
+	; Write reply header
 	LFSR	0, RX_PROTO(boot)
-	MOVLW	_boot_size
+	MOVLW	_boot_replay_size
 	RCALL	eth_write
+
+	; Restore the ethernet write pointer
+	eth_restore_write_ptr
+
 	BRA		udp_send
 
 
