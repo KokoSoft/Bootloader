@@ -75,16 +75,6 @@ phy_init:
 ;-------------------------------------------------------------------------------
 ; Frame processor
 ;-------------------------------------------------------------------------------
-; Send reply and done frame processing
-eth_send_done MACRO
-#if MULTIPLE_TX_PACKET
-	RCALL	eth_send
-	BRA		done_frame
-#else
-	BRA		eth_send
-#endif
-ENDM
-
 done_frame:
 	; Advance Eth read pointer (ERDPT)
 	; Freeing Receive Buffer Space (ERXRDPT)
@@ -202,7 +192,14 @@ process_arp:
 	; Start transmission
 	;MOVLW	_mac_size + _arp_size
 	BSF		LATB, 2, a
-	eth_send_done
+
+	; Send reply and done frame processing
+#if MULTIPLE_TX_PACKET
+	RCALL	eth_send
+	BRA		done_frame
+#else
+	BRA		eth_send
+#endif
 
 	
 	; Every internet module must be able to forward a datagram of 68
@@ -506,6 +503,6 @@ ip_send:
 ;	BRA gdb
 	;BCF		LATB, 3, a
 	; Send data!
-	eth_send_done
+	BRA		eth_send
 	
 END start; Bootloader entry point

@@ -204,15 +204,18 @@ memcmp_continue:
 	; Compare
 	MOVF	POSTINC0, a, W
 	XORWF	POSTINC1, a, W
-GLOBAL done_frame_pop_bra
+
 	; Detected dfferent value. pop return address from stack and drop packet
-	BNZ		done_frame_pop_bra
+	BNZ		memcmp_diff
 
 	; Loop control
 	DECF	VAR8(temp0), f
 	BNZ		memcmp_continue
 	RETURN	0
 
+memcmp_diff:
+	POP
+	BRA	done_frame
 
 ;-------------------------------------------------------------------------------
 ; Copy memory
