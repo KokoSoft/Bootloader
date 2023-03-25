@@ -370,10 +370,6 @@ bootloader:
 	SUBWFB	RX_BE16(udp, len, H), f
 	BNC		done_frame_bra
 
-	; Read bootloader header
-	MOVLW	_boot_size
-	RCALL	eth_read
-
 	; Call operation handler function
 	RCALL	bootloader_processor
 	; Send operation result
