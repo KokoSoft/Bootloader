@@ -183,6 +183,10 @@ eth_send:
 
 	; Start the transmission process by setting the TXRTS bit (ECON1<3>).
 	BSF		TXRTS			; ECON1 = FD2
+
+	; Switch Tx buffer page
+	tx_switch_buffer
+
 #if MULTIPLE_TX_PACKET
 	RETURN 0
 #else
