@@ -153,14 +153,16 @@ OP_CHIP_ERASE		EQU 7		; Reply: Header with STATUS_INPROGRESS, STATUS_OK
 OP_CHECKSUM			EQU 8		; Reply: ChecksumReply, STATUS_OK
 OP_MAX				EQU OP_CHIP_ERASE
 
-STATUS_REQUEST		EQU	0		; It is a request to a device
-STATUS_OK			EQU	1			
-STATUS_INPROGRESS	EQU	2		; Read, Write, Erase, Checksum in progress
-STATUS_INV_OP		EQU	3		; Unknown / unsupported operation
-STATUS_INV_PARAM	EQU	4		; Invalid operation parameters
-STATUS_INV_SRC		EQU	5		; Sender aren't permitted to perform this operation - discover first
-STATUS_INV_ADDR		EQU	6		; Forbidden operation address
-STATUS_PKT_SIZE		EQU	7		; Invalid packet size
+STATUS_REQUEST			EQU	0	; It is a request to a device
+STATUS_OK				EQU	1		
+STATUS_INPROGRESS		EQU	2	; Read, Write, Erase, Checksum in progress
+STATUS_INV_SRC			EQU	3	; Sender aren't permitted to perform this operation - discover first
+STATUS_INV_OP			EQU	4	; Unknown / unsupported operation
+STATUS_INV_PARAM		EQU	5	; Invalid operation parameters
+STATUS_INV_LENGTH		EQU 6	; Invalid operation length.
+STATUS_INV_ADDR			EQU	7	; Invalid operation address
+STATUS_PROTECTED_ADDR	EQU 8	; Forbidden operation address.
+STATUS_PKT_SIZE			EQU	9	; Invalid packet size
 
 ; Request header
 _boot_version		EQU 0x00	; be8_t			version;

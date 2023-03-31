@@ -40,6 +40,13 @@ bootloader_processor:
 	MOVLW	_boot_size
 	RCALL	eth_read
 
+	; Wait for transmitter idle before modifying the buffer content
+	; Do it before sending any reply
+	tx_wait
+
+	; Move eth write pointer to response payload start
+	eth_write_pos	TX_ADDR(boot, replay_payload)
+
 	; Check operation code
 	; Skip version and sequential number check if operation is OP_DISCOVER od OP_NET_CONFIG
 	MOVLW	OP_NET_CONFIG
@@ -54,7 +61,9 @@ bootloader_processor:
 	BNZ		done_frame_pop_bra
 
 	; Check if the sender is permitted
-	LFSR	0, RX_ADDR(ip, src)
+	; We already have the response packet header prepared.
+	; The source and destination addresses are swapped.
+	LFSR	0, RX_ADDR(ip, dst)
 	LFSR	1, programmer_ip_addr
 	MOVLW	IP_ALEN
 	MOVWF	VAR8(temp0)
@@ -67,19 +76,20 @@ check_sender_continue:
 	; Can save one instruction
 	;MOVLW	STATUS_INV_SRC
 	;BNZ	reply_error
+	; Change memcmp to return result to save some instructions? 
+	; Already have only 3 RCALL memcmp
 
 	; Loop control
 	DECF	VAR8(temp0), f
 	BNZ		check_sender_continue
 
-	; Check sequential number, must be one greater than the previous
-	; TODO: Or just diffrent?
-	MOVF	VAR8(expected_seq), W
-	XORWF	RX_BE8(boot, seq), W
-	; Duplicated / out of order frame - just drop
-	BNZ		done_frame_pop_bra
-	; Increment sequential number
-	INCF	VAR8(expected_seq), f
+	; Check sequential number, must be diffrent than the previous
+	MOVF	RX_BE8(boot, seq), W
+	XORWF	VAR8(expected_seq), f
+	; Duplicated -- just drop
+	BZ		done_frame_pop_bra
+	; Save current sequential number
+	;MOVWF	VAR8(expected_seq)
 
 	; Check operation code range
 	MOVLW	OP_MAX
@@ -92,27 +102,24 @@ check_sender_continue:
 	BRA		reply_invalid_operation
 
 bootloader_skip_check:
+	; Save current sequential number
+	MOVFF	RX_ADDR_BE8(boot, seq), VAR8_ADDR(expected_seq)
+
 	; Check is it a request to a device (status = STATUS_REQUEST)
 	MOVF	RX_BE8(boot, status), W
 	BNZ		done_frame_pop_bra
 
 	; Set flash memory pointer and check its range
 	MOVF	RX_BE32(boot, address, UH), f
-	BNZ		reply_invalid_param
+	BNZ		reply_invalid_address
 
 	MOVF	RX_BE32(boot, address, UL), W
 	MOVWF	TBLPTRU, a
 	XORWF	TBLPTRU, a, W
-	BNZ		reply_invalid_param
+	BNZ		reply_invalid_address
 
 	MOVFF	RX_ADDR_BE32(boot, address, L), TBLPTRL
 	MOVFF	RX_ADDR_BE32(boot, address, H), TBLPTRH
-
-	; Wait for transmitter idle before modifying the buffer content
-	tx_wait
-
-	; Move eth write pointer to response payload start
-	eth_write_pos	TX_ADDR(boot, replay_payload)
 
 DW NOPIFY(OPCODE_SLEEP, HIGH(switch_end) - HIGH(switch_start))
 
@@ -164,7 +171,7 @@ bootloader_net_config:
 
 	; Read MAC and IP address
 	LFSR	2, mac_addr
-	MOVLW	_mac_size + _ip_size
+	MOVLW	ETH_ALEN + IP_ALEN
 	RCALL	eth_read
 
 	; Configure MAC address in ethernet module
@@ -192,6 +199,8 @@ bootloader_net_config:
 ;-------------------------------------------------------------------------------
 bootloader_discover:
 	; Set source IP address as permitted programmer
+	; We already have the response packet header prepared.
+	; The source and destination addresses are swapped.
 	LFSR	0, RX_ADDR(ip, src)
 	LFSR	1, programmer_ip_addr
 	MOVLW	IP_ALEN
@@ -243,15 +252,17 @@ bootloader_read:
 	SUBLW	LOW(MAX_READ_LENGTH)					; Subtract W from literal
 	MOVLW	HIGH(MAX_READ_LENGTH)
 	SUBFWB	RX_BE16(boot, length, H), W	; Subtract f from W
-	BNC		reply_invalid_param
+	BNC		reply_invalid_length
 
-	; TODO: #if bieda checksum
+#if ETH_CHECKSUM_MODE == 0
 	; Length must be word aligned
 	BTFSC	RX_BIT_BE16(boot, length, 0)
-	BRA		reply_invalid_param
+	BRA		reply_invalid_length
+#endif
 
+	; Report in progress status
 	RCALL	reply_inprogress
-
+	
 bootloader_read_checked:
 	; If low byte of length is not zero then jump to read
 	MOVF	RX_BE16(boot, length, L), f
@@ -275,34 +286,51 @@ bootloader_read_copy:
 
 
 ;-------------------------------------------------------------------------------
-; Send reply with status
+; Send in progress reply
 ; ?? instructions
-;-------------------------------------------------------------------------------
 ; Special reply type, must call here
+;-------------------------------------------------------------------------------
 reply_inprogress:
+	RCALL reply_inprogress_int
+	tx_wait
+
+	; Move eth write pointer to response payload start
+	eth_write_pos	TX_ADDR(boot, replay_payload)
+	RETURN 0
+
+reply_inprogress_int:
 	MOVLW	STATUS_INPROGRESS
 	BRA		bootloader_reply_code
 
-
-; Return with status in WREG
-reply_wrong_packet_size:
-	RETLW	STATUS_PKT_SIZE
-reply_illegal_address:
-	RETLW	STATUS_INV_ADDR
-reply_invalid_param:
-	RETLW	STATUS_INV_PARAM
-reply_invalid_operation:
-	RETLW	STATUS_INV_OP
-reply_invalid_sender:
-	RETLW	STATUS_INV_SRC
+;-------------------------------------------------------------------------------
+; Return status code in WREG
+;-------------------------------------------------------------------------------
 reply_success:
 	RETLW	STATUS_OK
+reply_invalid_sender:
+	RETLW	STATUS_INV_SRC
+reply_invalid_operation:
+	RETLW	STATUS_INV_OP
+reply_invalid_param:
+	RETLW	STATUS_INV_PARAM
+reply_invalid_length:
+	RETLW	STATUS_INV_LENGTH
+reply_invalid_address:
+	RETLW	STATUS_INV_ADDR
+reply_illegal_address:
+	RETLW	STATUS_PROTECTED_ADDR
+reply_wrong_packet_size:
+	RETLW	STATUS_PKT_SIZE
 
-bootloader_reply_code:	; Place status in WREG
+
+;-------------------------------------------------------------------------------
+; Send reply packet using status code from WREG
+;-------------------------------------------------------------------------------
+bootloader_reply_code:
 	MOVWF	RX_BE8(boot, status)
 
 	; Save the ethernet write pointer - datagram end marker
-	; TODO: MoÅ¼e w tym miejscu zaprogramowaÄ‡ po prostu dÅ‚ugoÅ›Ä‡ pakietu zamiast robiÄ‡ to w funkcji send?
+	; TODO: Mo¿e w tym miejscu zaprogramowaæ po prostu d³ugoœæ pakietu zamiast robiæ to w funkcji send?
 	eth_save_write_ptr
 
 	; Move eth write pointer to response start
@@ -325,6 +353,8 @@ bootloader_reply_code:	; Place status in WREG
 ;-------------------------------------------------------------------------------
 bootloader_erase_write:
 	RCALL check_erase_address
+	TSTFSZ	WREG, a				; Test WREG, skip if 0 (success)
+	RETURN	0
 
 	; Length must be aligned to _FLASH_WRITE_SIZE
 	; TODO: Mo¿e oprzeæ siê na sprawdzeniu z funckji write. Bêdziemy mieæ co prawda wykasowan¹ ju¿ pamiêæ, ale to nie problem?
@@ -363,11 +393,11 @@ bootloader_write:
 	; Address must be aligned to flash write size (64 bytes)
 	MOVF	RX_BE32(boot, address, L), W
 	ANDLW	_FLASH_WRITE_SIZE - 1
-	BNZ		reply_invalid_param
+	BNZ		reply_invalid_address
 
 	; Check address possible boundaries
 	BTFSC	TBLPTRU, 5, a
-	BRA		reply_invalid_param
+	BRA		reply_invalid_address
 
 	;if (start >= boot_end || end < boot_start) then address is ok
 	; Check if the operation address is greater or equal than the end bootloader address.
@@ -380,9 +410,9 @@ bootloader_write:
 
 	MOVF	PCLATH, a, W
 	IORLW	HIGH(BOOTLOADER_SIZE - 1)	; Calculate bootloader end address high byte
-	SUBFWB	RX_BE32(boot, address, H), W
+	SUBWFB	RX_BE32(boot, address, H), W
 	MOVF	PCLATU, a, W
-	SUBFWB	RX_BE32(boot, address, UL), W
+	SUBWFB	RX_BE32(boot, address, UL), W
 	; if start >= boot_end then write is beyond bootloader code
 	BC		flash_write_checked
 
@@ -405,12 +435,8 @@ bootloader_write:
 	; Here we always have cleared carry
 	;ADDWFC	RX_BE32(boot, address, UH), f
 
-	; Check address possible boundaries
-	BTFSC	RX_BIT_BE32(boot, address, 21)
-	BRA		reply_invalid_param
-
 	; Check if the operation end address is below the bootloader address.
-	; Low bytes is always equal to 0
+	; Low byte is always equal to 0
 	MOVF	PCLATH, a, W
 	ANDLW	~HIGH(BOOTLOADER_SIZE - 1)	; Calculate bootloader start address high byte
 	SUBWF	RX_BE32(boot, address, H), W
@@ -420,12 +446,16 @@ bootloader_write:
 	BC		reply_illegal_address
 
 flash_write_checked:
+	; Check address possible boundaries
+	BTFSC	RX_BIT_BE32(boot, address, 21)
+	BRA		reply_invalid_address
+
 	; Length must be aligned to flash write size (64 bytes)
 	; Unlike previous PIC MCU devices, members of the PIC18F97J60 family
 	; do not reset the holding registers after a write occurs.
 	MOVF	RX_BE16(boot, length, L), W
 	ANDLW	_FLASH_WRITE_SIZE - 1
-	BNZ		reply_invalid_param
+	BNZ		reply_invalid_length
 
 	; Check operation length is equal to packet length
 	MOVF	RX_BE16(udp, len, H), W
@@ -465,7 +495,7 @@ flash_fill:
 
 	; Decrement block count
 	DECF	RX_BE16(boot, length, H), f
-	BNZ		copy
+	BNZ		flash_fill_block
 
 	BRA		reply_success
 #endif
@@ -476,7 +506,9 @@ flash_fill:
 ; 4 instructions
 ;-------------------------------------------------------------------------------
 bootloader_erase:
-	RCALL check_erase_address
+	RCALL	check_erase_address
+	TSTFSZ	WREG, a				; Test WREG, skip if 0 (success)
+	RETURN	0
 	RCALL	reply_inprogress
 
 	; Enable Row Erase operation. Set FREE bit in EECON1 register.
@@ -548,14 +580,14 @@ bootloader_chip_erase_row:
 check_erase_address:
 	; Operation address must be aligned to _FLASH_ERASE_SIZE
 	MOVF	TBLPTRL, a, f
-	BNZ		reply_invalid_param
+	BNZ		reply_invalid_address
 	MOVF	TBLPTRH, a, W
 	ANDLW	HIGH(_FLASH_ERASE_SIZE - 1)
-	BNZ		reply_invalid_param
+	BNZ		reply_invalid_address
 
 	; Check address possible boundaries
 	BTFSC	TBLPTRU, 5, a
-	BRA		reply_invalid_param
+	BRA		reply_invalid_address
 
 	; Check address to protect bootloader code
 	MOVF	PCL, a, W			; Read PCL to store PC in PCLATH and PCLATU
@@ -564,7 +596,8 @@ check_erase_address:
 	;XORWF	PCLATU, a, W
 	;BNZ		no_boot_code
 	CPFSEQ	PCLATU, a
-	RETURN	0					; Is is not boot code area
+	;RETURN	0					; Is is not boot code area
+	RETLW	0
 
 	MOVLW	HIGH(~(BOOTLOADER_SIZE - 1))
 	ANDWF	PCLATH, a, f
@@ -572,8 +605,6 @@ check_erase_address:
 	;XORWF	PCLATH, a, W
 	;BNZ		no_boot_code
 	CPFSEQ	PCLATH, a
-	RETURN	0					; Is is not boot code area
-
-reply_error_pop:
-	POP
-	BRA		reply_illegal_address
+	;RETURN	0					; Is is not boot code area
+	RETLW	0
+	RETLW	STATUS_PROTECTED_ADDR
