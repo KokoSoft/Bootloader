@@ -34,16 +34,16 @@ BOOTLOADER_VERSION	EQU	(1 << 8 | 0)
 ; 2. fast - Operates on double words, words and bytes. Maximum speed but big code footprint
 #define ETH_CHECKSUM_MODE			0
 
-; Pisz¹ ¿e maksymalny rozmiar ramki ethernet to 1518(1522 jeœli taggowana). Wlicza siê w to nag³ówek eth (mac mac len) payload i 4 bajtowy PSC na koñcu
-MAX_READ_LENGTH		EQU 1466 ; 1500 - ip - udp - boot header
+MAX_READ_LENGTH_BUF		EQU TX_BUFFER_SIZE - 1 - _mac_size - _ip_size - _udp_size - _boot_replay_size - _tx_size
+MAX_READ_LENGTH_ETH		EQU ETH_MAX_LENGTH - _mac_size - _ip_size - _udp_size - _boot_replay_size - _mac_footer_size
+
+MAX_READ_LENGTH			EQU MAX_READ_LENGTH_BUF
 
 ; Enable support for sending multiple response packets
 #define MULTIPLE_TX_PACKET			1
 
-; 854+89
-
 ; Allow write multiple sectors with single frame - costs 12 instructions
-#define MULTIBLOCK_WRITE			0
+#define MULTIBLOCK_WRITE			1
 
 ; Use bigger net_config frame (two MAC address formats) - save 8 instructions
 #define NET_CONFIG_MAC_EXTENDED		0
@@ -79,6 +79,8 @@ BOOTLOADER_SIZE	EQU	2 * _FLASH_ERASE_SIZE
 RX_FILTER			EQU ERXFCON_BCEN_MASK | ERXFCON_UCEN_MASK | ERXFCON_CRCEN_MASK
 
 ; Maximum frame length to be permitted to be received or transmitted.
+; Maximum size of an ethernet frame is 1518 (1522 if tagged). This includes the eth header
+; (dst mac, src mac, len) payload and the 4 byte of PSC at the end.
 ETH_MAX_LENGTH		EQU 1518
 
 #if ETH_FULL_DUPLEX
