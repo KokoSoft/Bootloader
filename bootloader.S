@@ -291,11 +291,20 @@ bootloader_read_copy:
 ; Special reply type, must call here
 ;-------------------------------------------------------------------------------
 reply_inprogress:
+	; Save read pointer
+	MOVFF	ERDPTH, VAR16_ADDR(read_ptr, H)
+	MOVFF	ERDPTL, VAR16_ADDR(read_ptr, L)
+
 	RCALL reply_inprogress_int
 	tx_wait
 
 	; Move eth write pointer to response payload start
 	eth_write_pos	TX_ADDR(boot, replay_payload)
+
+	; Restore read pointer
+	MOVFF	VAR16_ADDR(read_ptr, H), ERDPTH
+	MOVFF	VAR16_ADDR(read_ptr, L), ERDPTL
+
 	RETURN 0
 
 reply_inprogress_int:
@@ -356,6 +365,8 @@ bootloader_erase_write:
 	TSTFSZ	WREG, a				; Test WREG, skip if 0 (success)
 	RETURN	0
 
+	; RCALL	bootloader_erase
+
 	; Length must be aligned to _FLASH_WRITE_SIZE
 	; TODO: Mo¿e oprzeæ siê na sprawdzeniu z funckji write. Bêdziemy mieæ co prawda wykasowan¹ ju¿ pamiêæ, ale to nie problem?
 	MOVF	RX_BE16(boot, length, L), W
@@ -371,7 +382,8 @@ bootloader_erase_write:
 	SUBFWB	RX_BE16(boot, length, H), W	; Subtract f from W
 	BNC		reply_invalid_param
 
-	RCALL	reply_inprogress
+	; Can't send in progress status here. It would override udp length field
+	;RCALL	reply_inprogress
 
 	; Row erase
 	; TODO: Can call to the bootloader_erase if it is a function
@@ -536,43 +548,6 @@ flash_write_cycle:
 	RETURN	0
 
 ;-------------------------------------------------------------------------------
-; Erase whole chip without bootloader and config words
-; Config words protection requires bootloader placed in last (two) row(s) of flash
-; 16 instructions
-;-------------------------------------------------------------------------------
-bootloader_chip_erase:
-	; Start from bootloader start and go up to the beginning of flash
-	;MOVF	PCL, a, W						; PCL already touched by switch/case to bootloader_*
-	MOVFF	PCLATU, TBLPTRU
-	MOVF	PCLATH, a, W
-	ANDLW	HIGH(~(BOOTLOADER_SIZE - 1))	; Mask out bootloader size bits
-	MOVWF	TBLPTRH, a
-	DECF	TBLPTRH, a, f					; Decrement pointer to select row before bootloader
-	CLRF	WREG, a
-	SUBWFB	TBLPTRU, a, f
-
-	RCALL	reply_inprogress
-
-bootloader_chip_erase_row:
-	; Enable Row Erase operation. Set FREE bit in EECON1 register.
-	BSF		FREE
-	; Perform erasing
-	RCALL	flash_write_cycle
-	; Subtract erase size from the table pointer
-	MOVLW	_FLASH_ERASE_SIZE
-	SUBWF	TBLPTRH, a, f
-	MOVLW	0
-	SUBWFB	TBLPTRU, a, f
-	; Erase next row if not borrow
-	BC		bootloader_chip_erase_row
-	BRA		reply_success
-
-
-
-
-;TODO: Przenieœæ funkcje na pocz¹tek tego pliku
-
-;-------------------------------------------------------------------------------
 ; Check operation address to protect bootloader code
 ; Compare operation address bits 20:10 with Program Counter
 ; 20 instructions
@@ -608,3 +583,39 @@ check_erase_address:
 	;RETURN	0					; Is is not boot code area
 	RETLW	0
 	RETLW	STATUS_PROTECTED_ADDR
+
+;-------------------------------------------------------------------------------
+; Erase whole chip without bootloader and config words
+; Config words protection requires bootloader placed in last (two) row(s) of flash
+; 16 instructions
+;-------------------------------------------------------------------------------
+bootloader_chip_erase:
+	; Start from bootloader start and go up to the beginning of flash
+	;MOVF	PCL, a, W						; PCL already touched by switch/case to bootloader_*
+	MOVFF	PCLATU, TBLPTRU
+	MOVF	PCLATH, a, W
+	ANDLW	HIGH(~(BOOTLOADER_SIZE - 1))	; Mask out bootloader size bits
+	MOVWF	TBLPTRH, a
+	; Decrement pointer to select row before bootloader
+	; Table Erase use TBLPTR<20:10> bits. So, we can safe decrement TBLPTRH by 1
+	DECF	TBLPTRH, a, f
+	CLRF	WREG, a
+	SUBWFB	TBLPTRU, a, f
+
+	RCALL	reply_inprogress
+
+bootloader_chip_erase_row:
+	; Enable Row Erase operation. Set FREE bit in EECON1 register.
+	BSF		FREE
+	; Perform erasing
+	RCALL	flash_write_cycle
+	; Subtract erase size from the table pointer
+	MOVLW	HIGH(_FLASH_ERASE_SIZE)
+	SUBWF	TBLPTRH, a, f
+	MOVLW	0
+	SUBWFB	TBLPTRU, a, f
+	; Erase next row if not borrow
+	BC		bootloader_chip_erase_row
+	BRA		reply_success
+
+

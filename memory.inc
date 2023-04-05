@@ -39,6 +39,9 @@ VAR_checksum:		DS 2
 ; Can be outside of access ram
 VAR_ptr:			DS 2
 
+; Used to temporarly store of ethernet ram read pointer
+VAR_read_ptr:		DS 2
+
 ; Parameter for eth_checksum
 ; Lenght of a data to be checksumed
 VAR_check_len:		DS 2
