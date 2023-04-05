@@ -20,7 +20,7 @@ BOOTLOADER_VERSION	EQU	(1 << 8 | 0)
 
 ; Size of single transmit buffer, must be a multiple of 256 bytes.
 ; Must reserve 8 bytes for per-packet control byte and Transmit Status Vector
-#define TX_BUFFER_SIZE				256
+#define TX_BUFFER_SIZE				1536
 
 ; Transmit buffer mode
 #define TX_DOUBLE_BUFFERING			0
@@ -32,7 +32,7 @@ BOOTLOADER_VERSION	EQU	(1 << 8 | 0)
 ; 0. basic - Operates on words only, bo byte suport, max 256 words
 ; 1. extended - Operates on words, odd length supported
 ; 2. fast - Operates on double words, words and bytes. Maximum speed but big code footprint
-#define ETH_CHECKSUM_MODE			0
+#define ETH_CHECKSUM_MODE			1
 
 MAX_READ_LENGTH_BUF		EQU TX_BUFFER_SIZE - 1 - _mac_size - _ip_size - _udp_size - _boot_replay_size - _tx_size
 MAX_READ_LENGTH_ETH		EQU ETH_MAX_LENGTH - _mac_size - _ip_size - _udp_size - _boot_replay_size - _mac_footer_size
